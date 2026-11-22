@@ -1,11 +1,2 @@
-# Core
+streamlit
 numpy
-
-# RL / Neural Network
-torch
-
-# Web
-fastapi
-uvicorn[standard]
-jinja2
-pydantic
