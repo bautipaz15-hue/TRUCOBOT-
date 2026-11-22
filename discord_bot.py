@@ -287,4 +287,4 @@ async def desafiar(interaction: discord.Interaction, amigo: discord.Member):
     view = MesaAmigosView(interaction.user.id, amigo.id, mano_j1)
     await interaction.response.send_message(content=f"{amigo.mention} te desafiaron!", embed=embed, files=files, view=view)
 
-@tree.command(name="cantar", description="C
+@tree.command(name="cantar", description="cantar")
