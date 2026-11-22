@@ -1,42 +1,72 @@
-import os
 import discord
-from discord.ext import commands
-from flask import Flask
-import threading
 from discord import app_commands
-import random
-
-app = Flask(__name__)
-@app.route('/')
-def home(): return "Bot Truco ON"
-
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-threading.Thread(target=run_web, daemon=True).start()
 
 intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = discord.Client(intents=intents)
+tree = app_commands.CommandTree(bot)
+
+# --- COMANDO /jugar ---
+@tree.command(name="jugar", description="Jugar al truco: vs bot o vs amigo")
+@app_commands.describe(oponente="Escribí 'bot' o menciona @Pepito")
+async def jugar(interaction: discord.Interaction, oponente: str):
+    
+    # Si pone /jugar bot
+    if oponente.lower() == "bot":
+        await interaction.response.send_message(
+            f"🤖 **Partida vs BOT creada**\n"
+            f"Jugador: {interaction.user.mention}\n"
+            f"Tus cartas: 1 de Espada, 7 de Oro, 3 de Basto\n"
+            f"Usá `/cantar truco` o `/cantar envido`"
+        )
+    # Si pone /jugar @Pepito
+    else:
+        await interaction.response.send_message(
+            f"🔥 **DESAFÍO TRUQUERO**\n"
+            f"{interaction.user.mention} desafió a {oponente} a un truco!\n"
+            f"{oponente} aceptá con `/quiero`"
+        )
+
+# --- COMANDO /cantar ---
+@tree.command(name="cantar", description="Cantar en el truco")
+@app_commands.describe(canto="Qué querés cantar")
+@app_commands.choices(canto=[
+    app_commands.Choice(name="envido", value="envido"),
+    app_commands.Choice(name="real envido", value="real_envido"),
+    app_commands.Choice(name="falta envido", value="falta_envido"),
+    app_commands.Choice(name="flor", value="flor"),
+    app_commands.Choice(name="rosa 🌹", value="rosa"),
+    app_commands.Choice(name="truco", value="truco"),
+    app_commands.Choice(name="retruco", value="retruco"),
+    app_commands.Choice(name="vale cuatro", value="vale_cuatro"),
+])
+async def cantar(interaction: discord.Interaction, canto: str):
+    mapa = {
+        "envido": "¡ENVIDO!",
+        "real_envido": "¡REAL ENVIDO!",
+        "falta_envido": "¡FALTA ENVIDO!",
+        "flor": "¡FLOR!",
+        "rosa": "¡ROSA! 🌹",
+        "truco": "¡TRUCO!",
+        "retruco": "¡RETRUCO!",
+        "vale_cuatro": "¡VALE CUATRO!"
+    }
+    await interaction.response.send_message(f"{interaction.user.mention} cantó **{mapa[canto]}** Responde con `/quiero` o `/no-quiero`")
+
+@tree.command(name="quiero", description="Aceptar canto")
+async def quiero(interaction: discord.Interaction):
+    await interaction.response.send_message(f"✅ {interaction.user.mention} dijo ¡QUIERO!")
+
+@tree.command(name="no-quiero", description="Rechazar canto")
+async def noquiero(interaction: discord.Interaction):
+    await interaction.response.send_message(f"❌ {interaction.user.mention} dijo ¡NO QUIERO!")
+
+@tree.command(name="irse", description="Irse al mazo")
+async def irse(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🏃 {interaction.user.mention} se fue al mazo")
 
 @bot.event
 async def on_ready():
-    print(f"Conectado como {bot.user}")
-    try:
-        await bot.tree.sync()
-        print("Comandos sincronizados")
-    except Exception as e:
-        print(e)
+    await tree.sync()
+    print("Bot de truco listo!")
 
-@bot.tree.command(name="ping", description="Prueba el bot")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Pong! Live!")
-
-@bot.tree.command(name="truco", description="Jugar al truco vs bot")
-async def truco_cmd(interaction: discord.Interaction):
-    await interaction.response.send_message(f"🃏 Tu mano: {random.randint(1,7)} de Espada, {random.randint(1,7)} de Oro, 3 de Basto. Deci TRUCO!")
-
-TOKEN = os.environ.get("DISCORD_TOKEN")
-print("Iniciando bot...")
-bot.run(TOKEN)
+bot.run("TU_TOKEN")
