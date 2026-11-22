@@ -1,5 +1,6 @@
 import json
 import random
+from truco_core.state import GameState
 
 class CFR_Engine:
     def __init__(self, model_path: str = None):
@@ -23,22 +24,25 @@ class CFR_Engine:
             return random.choices(actions, weights=probs, k=1)[0]
         return None
 
-def generar_infoset(estado) -> str:
+def generar_infoset(estado: GameState) -> str:
     """
-    Convierte el EstadoMano actual en un string único (InfoSet).
+    Convierte el GameState actual en un string único (InfoSet).
     Ejemplo de hash: [1E,7O,4B]|RivalTiro:3C|Apuesta:E1-T1|Pts:14-14
     """
     def short_name(carta) -> str:
-        nombre = carta.obtener_nombre()
+        # Usa el método to_short() de truco_core.card.Card si existe,
+        # o lo calculamos manualmente si no.
+        if hasattr(carta, 'to_short'):
+            return carta.to_short()
+        
+        nombre = carta.nombre
         if " " in nombre:
             val, palo = nombre.split(" ")
             return f"{val}{palo[0]}"
-        # Si es un número sin palo en el nombre (porque no importa el palo para su jerarquía)
-        # obtenemos el palo original.
         return f"{carta.valor}{carta.palo[0]}"
 
     # Cartas en mano del bot (ordenadas por jerarquía para que sea consistente)
-    cartas_mano = sorted(estado.cartas_restantes, key=lambda c: c.obtener_jerarquia(), reverse=True)
+    cartas_mano = sorted(estado.cartas_restantes, key=lambda c: c.jerarquia, reverse=True)
     cartas_str = ",".join([short_name(c) for c in cartas_mano])
     
     # Cartas jugadas en la mesa por el rival
