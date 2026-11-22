@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 import random
+import os
 
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
@@ -11,6 +12,18 @@ partidas = {}
 # --- MAZO REAL ARGENTINO ---
 PALOS = ["espada", "basto", "oro", "copa"]
 NUMEROS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
+
+# --- TUS 40 FOTOS REALES WA_ ---
+CARPETA_CARTAS = "Cartas_reales"
+_ARCHIVOS = sorted([f for f in os.listdir(CARPETA_CARTAS) if f.endswith(('.jpg','.jpeg','.png','.JPG'))])
+_MAZO_ORDENADO = [(n, p) for p in PALOS for n in NUMEROS]
+MAPA_CARTAS = {carta: _ARCHIVOS[i % len(_ARCHIVOS)] for i, carta in enumerate(_MAZO_ORDENADO)}
+
+def foto_carta(numero, palo):
+    nombre = MAPA_CARTAS.get((numero, palo))
+    if nombre:
+        return os.path.join(CARPETA_CARTAS, nombre)
+    return None
 
 VALOR_TRUCO = {
     (1, "espada"): 14,
@@ -26,9 +39,7 @@ def valor_truco_carta(numero, palo):
     return VALOR_TRUCO.get(numero, 0)
 
 def calcular_envido(cartas):
-    # cartas = [(numero, palo), ...]
     mejor = 0
-    # buscar mismo palo
     for i in range(len(cartas)):
         for j in range(i+1, len(cartas)):
             if cartas[i][1] == cartas[j][1]:
@@ -38,7 +49,6 @@ def calcular_envido(cartas):
                 if total > mejor:
                     mejor = total
     if mejor == 0:
-        # carta mas alta sola
         for n, p in cartas:
             val = 0 if n >= 10 else n
             if val > mejor:
@@ -77,6 +87,12 @@ async def jugar(interaction: discord.Interaction, oponente: str):
     texto_cartas = "\n".join([f"{n} de {p}" for n, p in mano_jugador])
     extra = "¡TENÉS FLOR! 🌸" if flor_jugador else f"Tu envido es: **{envido_jugador}**"
 
+    archivos = []
+    for n, p in mano_jugador:
+        ruta = foto_carta(n, p)
+        if ruta and os.path.exists(ruta):
+            archivos.append(discord.File(ruta))
+
     if oponente.lower() == "bot":
         await interaction.response.send_message(
             f"🤖 **PARTIDA VS BOT - TRUCO REAL**\n"
@@ -88,6 +104,7 @@ async def jugar(interaction: discord.Interaction, oponente: str):
             f"`/cantar flor` `/cantar truco`\n"
             f"`/tirar 1` `/tirar 2` `/tirar 3` para jugar carta\n"
             f"`/irse` para irte al mazo",
+            files=archivos,
             ephemeral=False
         )
     else:
@@ -95,7 +112,8 @@ async def jugar(interaction: discord.Interaction, oponente: str):
             f"🔥 **DESAFÍO TRUQUERO REAL**\n"
             f"{interaction.user.mention} desafió a {oponente}!\n"
             f"🃏 Tus cartas por privado: {texto_cartas} ({extra})\n"
-            f"Esperando que {oponente} acepte con `/quiero`"
+            f"Esperando que {oponente} acepte con `/quiero`",
+            files=archivos
         )
 
 @tree.command(name="cantar", description="Cantar en el truco (con reglas reales)")
@@ -159,11 +177,16 @@ async def tirar(interaction: discord.Interaction, numero: int):
         await interaction.response.send_message("Usá `/jugar bot` primero y tirá 1, 2 o 3", ephemeral=True)
         return
     carta = partida['mano'][numero-1]
-    await interaction.response.send_message(f"🃏 {interaction.user.mention} tiró **{carta[0]} de {carta[1]}** (Valor truco: {valor_truco_carta(carta[0], carta[1])})")
+    ruta = foto_carta(carta[0], carta[1])
+    archivo = [discord.File(ruta)] if ruta and os.path.exists(ruta) else []
+    await interaction.response.send_message(
+        f"🃏 {interaction.user.mention} tiró **{carta[0]} de {carta[1]}** (Valor truco: {valor_truco_carta(carta[0], carta[1])})",
+        files=archivo
+    )
 
 @bot.event
 async def on_ready():
     await tree.sync()
     print("Bot truco completo listo!")
 
-bot.run("TU_TOKEN")
+bot.run(os.getenv("DISCORD_TOKEN") or "TU_TOKEN")
