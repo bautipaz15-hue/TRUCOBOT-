@@ -24,7 +24,6 @@ partidas = {}
 NOMBRES_BOTS = ["Don Ramón", "Messi", "El Mago", "Cacho"]
 CARPETA_BOTS = "truco_bots"
 TABLERO_PATH = os.path.join(CARPETA_BOTS, "Tablero.jpg")
-# Si no está en truco_bots, busca en la raiz
 if not os.path.exists(TABLERO_PATH):
     TABLERO_PATH = "Tablero.jpg"
 
@@ -118,87 +117,4 @@ def calcular_envido(cartas):
             if val > mejor: mejor = val
     return mejor
 
-def tiene_flor(cartas): return cartas[0][1] == cartas[1][1] == cartas[2][1]
-
-# --- VIEWS NUEVAS ---
-class CartaButton(discord.ui.Button):
-    def __init__(self, carta, idx):
-        self.carta = carta
-        self.idx = idx
-        super().__init__(label=f"{carta[0]} de {carta[1]}", style=discord.ButtonStyle.primary, row=0)
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Vas a tirar **{self.carta[0]} de {self.carta[1]}**? Confirmá con el botón verde", view=ConfirmarTirarView(self.carta, self.idx, interaction.user.id), ephemeral=True)
-
-class ConfirmarTirarView(discord.ui.View):
-    def __init__(self, carta, idx, owner_id):
-        super().__init__(timeout=30)
-        self.carta = carta; self.idx = idx; self.owner_id = owner_id
-    @discord.ui.button(label="✅ TIRAR CARTA", style=discord.ButtonStyle.success)
-    async def confirmar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        partida = partidas.get(self.owner_id)
-        if partida: await interaction.response.send_message(f"🃏 Tiraste **{self.carta[0]} de {self.carta[1]}** - El bot piensa...", ephemeral=False)
-        else: await interaction.response.send_message("No hay partida", ephemeral=True)
-
-# --- COMANDOS ---
-
-@tree.command(name="jugar", description="Jugar al truco vs bot o vs amigo")
-@app_commands.describe(oponente="Escribi 'bot' o menciona a tu amigo")
-async def jugar(interaction: discord.Interaction, oponente: str):
-    mazo = [(n, p) for p in PALOS for n in NUMEROS]
-    random.shuffle(mazo)
-    mano_jugador = [mazo.pop() for _ in range(3)]
-    mano_rival = [mazo.pop() for _ in range(3)]
-    envido_jugador = calcular_envido(mano_jugador)
-    envido_bot = calcular_envido(mano_rival)
-    
-    partidas[interaction.user.id] = {"mano": mano_jugador, "rival": mano_rival, "envido": envido_jugador, "envido_bot": envido_bot}
-
-    if oponente.lower() == "bot":
-        nombre_bot = random.choice(NOMBRES_BOTS)
-        avatar_path = get_bot_avatar_file()
-        
-        embed = discord.Embed(title="🟩 MESA DE TRUCO 1v1 - ARGENTINO", description=f"**{nombre_bot}** 🤖 [BOT] VS {interaction.user.mention} 👤\n\nTu envido: **{envido_jugador}** {'🌸 FLOR!' if tiene_flor(mano_jugador) else ''}", color=0x1e8449)
-        
-        files = []
-        if os.path.exists(TABLERO_PATH):
-            files.append(discord.File(TABLERO_PATH, filename="tablero.jpg"))
-            embed.set_image(url="attachment://tablero.jpg")
-        if avatar_path:
-            files.append(discord.File(avatar_path, filename="bot.png"))
-            embed.set_thumbnail(url="attachment://bot.png")
-            embed.set_author(name=f"{nombre_bot} [BOT] - Tiene 3 cartas boca abajo")
-        
-        view = discord.ui.View(timeout=120)
-        for idx, carta in enumerate(mano_jugador):
-            view.add_item(CartaButton(carta, idx))
-        view.add_item(discord.ui.Button(label="ENVIDO", style=discord.ButtonStyle.success, row=1))
-        view.add_item(discord.ui.Button(label="TRUCO", style=discord.ButtonStyle.danger, row=1))
-        
-        await interaction.response.send_message(embed=embed, files=files, view=view)
-    else:
-        texto_cartas = "\n".join([f"{n} de {p}" for n, p in mano_jugador])
-        await interaction.response.send_message(f"🔥 {interaction.user.mention} desafió a {oponente}! Tus cartas: {texto_cartas}")
-
-@tree.command(name="cantar", description="Cantar en el truco")
-@app_commands.choices(canto=[app_commands.Choice(name="envido", value="envido"), app_commands.Choice(name="real envido", value="real_envido"), app_commands.Choice(name="falta envido", value="falta_envido"), app_commands.Choice(name="flor", value="flor"), app_commands.Choice(name="truco", value="truco"), app_commands.Choice(name="retruco", value="retruco"), app_commands.Choice(name="vale cuatro", value="vale_cuatro")])
-async def cantar(interaction: discord.Interaction, canto: str):
-    partida = partidas.get(interaction.user.id)
-    if not partida: await interaction.response.send_message("Primero /jugar bot", ephemeral=True); return
-    await interaction.response.send_message(f"🎲 {interaction.user.mention} cantó **{canto.upper()}**! Tu envido: {partida['envido']}")
-
-@tree.command(name="tirar", description="Tirar carta 1,2 o 3")
-async def tirar(interaction: discord.Interaction, numero: int):
-    partida = partidas.get(interaction.user.id)
-    if not partida or numero < 1 or numero > 3: await interaction.response.send_message("Usá /jugar bot primero", ephemeral=True); return
-    carta = partida['mano'][numero-1]
-    ruta = foto_carta(carta[0], carta[1])
-    archivo = [discord.File(ruta)] if ruta and os.path.exists(ruta) else []
-    await interaction.response.send_message(f"🃏 {interaction.user.mention} tiró **{carta[0]} de {carta[1]}**", files=archivo)
-
-@bot.event
-async def on_ready():
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name="Truco [🤖 vs Bot] [👥 vs Amigo]"))
-    await tree.sync()
-    print("Bot truco con mesa listo!")
-
-bot.run(os.getenv("DISCORD_TOKEN") or "TU_TOKEN")
+def tiene_flor(cartas
