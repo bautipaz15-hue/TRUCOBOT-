@@ -1,9 +1,2 @@
-streamlit
-numpy
-fastapi
-uvicorn
-torch
-jinja2
-pydantic
-python-multipart
+discord.py
 flask
