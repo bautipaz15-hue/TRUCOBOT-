@@ -2,7 +2,19 @@ import discord
 from discord import app_commands
 import random
 import os
+from flask import Flask
+from threading import Thread
 
+app = Flask('')
+@app.route('/')
+def home():
+    return "Bot Truco Online!"
+def run():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+Thread(target=run, daemon=True).start()
+
+# A PARTIR DE ACA SIGUE TU CODIGO NORMAL
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
 tree = app_commands.CommandTree(bot)
