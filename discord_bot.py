@@ -29,13 +29,14 @@ CARPETA_CARTAS = "Cartas_reales"
 
 # Este es el mapeo correcto: (numero, palo) -> tu archivo WA_
 MAPA_CARTAS = {
-    # ORO - te falta 1 (6_oro o 7_oro) por eso son 39 cartas, el bot usa el que tenes
+    # ORO - AHORA COMPLETO CON 7 DE ORO
     (1, "oro"): "WA_1795360976029.jpeg",
     (2, "oro"): "WA_1795361008859.jpeg",
     (3, "oro"): "WA_1795361029880.jpeg",
     (4, "oro"): "WA_1795361045359.jpeg",
     (5, "oro"): "WA_1795361059645.jpeg",
-    (6, "oro"): "WA_1795361075067.jpeg", # en tu captura este es 6 de oro, 7 de oro no lo subiste
+    (6, "oro"): "WA_1795361075067.jpeg",
+    (7, "oro"): "f298a3b4410a23085a92f853f79a248d.jpg",
     (10, "oro"): "WA_1795361089117.jpeg",
     (11, "oro"): "WA_1795361103363.jpeg",
     (12, "oro"): "WA_1795361115693.jpeg",
@@ -85,7 +86,6 @@ def foto_carta(numero, palo):
         ruta = os.path.join(CARPETA_CARTAS, nombre)
         if os.path.exists(ruta):
             return ruta
-    # si falta 7 de oro, que use dorso para no crashear
     ruta_dorso = os.path.join(CARPETA_CARTAS, DORSO)
     return ruta_dorso if os.path.exists(ruta_dorso) else None
 
