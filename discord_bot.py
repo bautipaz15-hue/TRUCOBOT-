@@ -1,65 +1,84 @@
-from flask import Flask
-from threading import Thread
-
-app = Flask(__name__)
-@app.route('/')
-def home(): return "Bot vivo!"
-
-def run_web():
-    app.run(host="0.0.0.0", port=10000)
-
-Thread(target=run_web, daemon=True).start()
 import discord
 from discord.ext import commands
-import os
 import random
+import os
 
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+MAZO = [("1 de Espada 🗡️",14), ("1 de Basto 🌿",10), ("7 de Espada 🗡️",13), ("7 de Oro 💰",13), ("3",12), ("2",11), ("12 Rey 👑",8), ("4",1)]
+def repartir(n=3):
+    m = MAZO.copy(); random.shuffle(m); return m[:n]
+partidas = {}
 
 @bot.event
 async def on_ready():
-    print(f"TRUCOBOT online como {bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Sincronizados {len(synced)} comandos slash - /truco activo!")
+    except Exception as e:
+        print(e)
+    print(f'Conectado como {bot.user}')
 
-@bot.command(name="truco")
-async def truco(ctx, rival: discord.Member = None):
-    if rival is None:
-        await ctx.send("Usa `!truco @amigo` para desafiar")
-        return
-    embed = discord.Embed(title="🇦🇷 ¡DESAFÍO TRUCO!", description=f"{ctx.author.mention} desafia a {rival.mention} a un truco", color=0x0099ff)
-    embed.set_image(url="https://media.giphy.com/media/l1J9u3TZfpfeDLkD6/giphy.gif")
-    await ctx.send(embed=embed)
+# --- COMANDOS CON / ---
+@bot.tree.command(name="truco", description="Jugar al truco solo vs BOT o con amigo")
+async def truco_slash(interaction: discord.Interaction, oponente: discord.Member = None):
+    mano1 = repartir(); mano2 = repartir()
+    partidas[interaction.channel_id] = {"p1": interaction.user, "mano1": mano1, "mano2": mano2}
+    
+    if oponente is None:
+        msg = f"🎮 **{interaction.user.mention} vs 🤖 BOT Truco!**"
+    else:
+        msg = f"🎮 **{interaction.user.mention} desafía a {oponente.mention}!**"
+    
+    cartas_txt = "\n".join([f"{i+1}. {c[0]}" for i, c in enumerate(mano1)])
+    embed = discord.Embed(title="🃏 Partida Iniciada! /truco", color=0x00ff00, description=msg)
+    embed.add_field(name="Tus cartas", value=cartas_txt)
+    embed.set_footer(text="Tirá escribiendo 1, 2 o 3 en el chat")
+    await interaction.response.send_message(embed=embed)
 
-@bot.command(name="acepto")
-async def acepto(ctx):
-    await ctx.send(f"{ctx.author.mention} aceptó! Tira con `!tirar 1` `!tirar 2` `!tirar 3`")
+@bot.tree.command(name="tirar", description="Tirar una carta")
+async def tirar_slash(interaction: discord.Interaction, numero: int = 1):
+    carta = random.choice(MAZO)
+    await interaction.response.send_message(f"🃏 **{interaction.user.display_name} tiró {carta[0]}**")
 
-@bot.command(name="tirar")
-async def tirar(ctx, numero: int = 1):
-    cartas = ["1 de Espada 🗡️", "7 de Espada", "3 de Oro", "Ancho de Basto"]
-    carta = random.choice(cartas)
-    embed = discord.Embed(title=f"{ctx.author.display_name} tiró", description=f"## {carta}", color=0x00ff00)
-    embed.set_thumbnail(url="https://i.imgur.com/Qk2Ya6O.png")
-    await ctx.send(embed=embed)
+@bot.tree.command(name="envido", description="Cantar envido")
+async def envido_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🔥 **{interaction.user.mention} dice ¡ENVIDO!**")
 
-@bot.command(name="envido")
-async def envido(ctx):
-    embed = discord.Embed(title="¡ENVIDO! 🔥", description=f"{ctx.author.mention} cantó ENVIDO", color=0xff0000)
-    embed.set_image(url="https://i.imgur.com/3o7aCTn.gif")
-    await ctx.send(embed=embed)
+@bot.tree.command(name="flor", description="Cantar flor")
+async def flor_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🌸 **{interaction.user.mention} cantó ¡FLOR!**")
 
-@bot.command(name="flor")
-async def flor(ctx):
-    embed = discord.Embed(title="¡FLOR! 🌸", color=0xff66cc)
-    embed.set_image(url="https://i.imgur.com/8Km9tLL.png")
-    await ctx.send(f"{ctx.author.mention}", embed=embed)
+@bot.tree.command(name="quiero", description="Aceptar")
+async def quiero_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(f"✅ **{interaction.user.mention} dice ¡QUIERO!**")
 
-@bot.command(name="quiero")
-async def quiero(ctx):
-    await ctx.send(f"{ctx.author.mention} dijo ¡QUIERO! 💪")
-@bot.command(name="noquiero")
-async def noquiero(ctx):
-    await ctx.send(f"{ctx.author.mention} dijo ¡NO QUIERO! 😤")
+@bot.tree.command(name="noquiero", description="Rechazar")
+async def noquiero_slash(interaction: discord.Interaction):
+    await interaction.response.send_message(f"❌ **{interaction.user.mention} dice ¡NO QUIERO!**")
+
+# --- LÓGICA PARA JUGAR CON 1,2,3 (sigue igual) ---
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+    if message.channel.id in partidas and message.content.strip() in ["1","2","3"]:
+        p = partidas[message.channel.id]
+        if message.author.id != p["p1"].id: return
+        idx = int(message.content.strip())-1
+        if idx >= len(p["mano1"]):
+            await message.channel.send("Esa ya la usaste!"); return
+        carta_yo = p["mano1"].pop(idx)
+        carta_bot = p["mano2"].pop(random.randrange(len(p["mano2"])))
+        res = "Ganaste vos! 🔥" if carta_yo[1] > carta_bot[1] else "Gana el BOT! 🤖" if carta_yo[1] < carta_bot[1] else "Parda!"
+        await message.channel.send(f"**Vos:** {carta_yo[0]} VS **BOT:** {carta_bot[0]}\n**{res}**")
+        if not p["mano1"]:
+            await message.channel.send(f"🏁 ¡Fin! Hacé /truco de nuevo {p['p1'].mention}")
+            del partidas[message.channel.id]
+        else:
+            restantes = "\n".join([f"{i+1}. {c[0]}" for i, c in enumerate(p["mano1"])])
+            await message.channel.send(f"Te quedan:\n{restantes}")
+    await bot.process_commands(message)
 
 bot.run(os.getenv("DISCORD_TOKEN"))
