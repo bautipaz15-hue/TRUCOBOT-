@@ -14,7 +14,6 @@ def run():
     app.run(host='0.0.0.0', port=port)
 Thread(target=run, daemon=True).start()
 
-# A PARTIR DE ACA SIGUE TU CODIGO NORMAL
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
 tree = app_commands.CommandTree(bot)
@@ -25,17 +24,70 @@ partidas = {}
 PALOS = ["espada", "basto", "oro", "copa"]
 NUMEROS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
 
-# --- TUS 40 FOTOS REALES WA_ ---
+# --- TU MAPEO REAL SIN RENOMBRAR (basado en las fotos que me mandaste) ---
 CARPETA_CARTAS = "Cartas_reales"
-_ARCHIVOS = sorted([f for f in os.listdir(CARPETA_CARTAS) if f.endswith(('.jpg','.jpeg','.png','.JPG'))])
-_MAZO_ORDENADO = [(n, p) for p in PALOS for n in NUMEROS]
-MAPA_CARTAS = {carta: _ARCHIVOS[i % len(_ARCHIVOS)] for i, carta in enumerate(_MAZO_ORDENADO)}
+
+# Este es el mapeo correcto: (numero, palo) -> tu archivo WA_
+MAPA_CARTAS = {
+    # ORO - te falta 1 (6_oro o 7_oro) por eso son 39 cartas, el bot usa el que tenes
+    (1, "oro"): "WA_1795360976029.jpeg",
+    (2, "oro"): "WA_1795361008859.jpeg",
+    (3, "oro"): "WA_1795361029880.jpeg",
+    (4, "oro"): "WA_1795361045359.jpeg",
+    (5, "oro"): "WA_1795361059645.jpeg",
+    (6, "oro"): "WA_1795361075067.jpeg", # en tu captura este es 6 de oro, 7 de oro no lo subiste
+    (10, "oro"): "WA_1795361089117.jpeg",
+    (11, "oro"): "WA_1795361103363.jpeg",
+    (12, "oro"): "WA_1795361115693.jpeg",
+
+    # COPA
+    (1, "copa"): "WA_1795361133619.jpeg",
+    (2, "copa"): "WA_1795361147081.jpeg",
+    (3, "copa"): "WA_1795361159409.jpeg",
+    (4, "copa"): "WA_1795361167029.jpeg",
+    (5, "copa"): "WA_1795361181627.jpeg",
+    (6, "copa"): "WA_1795361194858.jpeg",
+    (7, "copa"): "WA_1795361207200.jpeg",
+    (10, "copa"): "WA_1795361223477.jpeg",
+    (11, "copa"): "WA_1795361247470.jpeg",
+    (12, "copa"): "WA_1795361256354.jpeg",
+
+    # ESPADA
+    (1, "espada"): "WA_1795361273879.jpeg",
+    (2, "espada"): "WA_1795361291920.jpeg",
+    (3, "espada"): "WA_1795361309028.jpeg",
+    (4, "espada"): "WA_1795361319086.jpeg",
+    (5, "espada"): "WA_1795361329193.jpeg",
+    (6, "espada"): "WA_1795361338149.jpeg",
+    (7, "espada"): "WA_1795361346453.jpeg",
+    (10, "espada"): "WA_1795361359955.jpeg",
+    (11, "espada"): "WA_1795361370531.jpeg",
+    (12, "espada"): "WA_1795361377563.jpeg",
+
+    # BASTO
+    (1, "basto"): "WA_1795361405106.jpeg",
+    (2, "basto"): "WA_1795361414925.jpeg",
+    (3, "basto"): "WA_1795361426382.jpeg",
+    (4, "basto"): "WA_1795361435086.jpeg",
+    (5, "basto"): "WA_1795361445594.jpeg",
+    (6, "basto"): "WA_1795361455619.jpeg",
+    (7, "basto"): "WA_1795361462938.jpeg",
+    (10, "basto"): "WA_1795361479310.jpeg",
+    (11, "basto"): "WA_1795361489348.jpeg",
+    (12, "basto"): "WA_1795361496548.jpeg",
+}
+
+DORSO = "WA_1795360931463.jpeg"
 
 def foto_carta(numero, palo):
     nombre = MAPA_CARTAS.get((numero, palo))
     if nombre:
-        return os.path.join(CARPETA_CARTAS, nombre)
-    return None
+        ruta = os.path.join(CARPETA_CARTAS, nombre)
+        if os.path.exists(ruta):
+            return ruta
+    # si falta 7 de oro, que use dorso para no crashear
+    ruta_dorso = os.path.join(CARPETA_CARTAS, DORSO)
+    return ruta_dorso if os.path.exists(ruta_dorso) else None
 
 VALOR_TRUCO = {
     (1, "espada"): 14,
@@ -198,7 +250,13 @@ async def tirar(interaction: discord.Interaction, numero: int):
 
 @bot.event
 async def on_ready():
+    # --- ACTIVITY QUE ME PEDISTE ---
+    actividad = discord.Activity(
+        type=discord.ActivityType.playing,
+        name="Truco [🤖 vs Bot] [👥 vs Amigo]"
+    )
+    await bot.change_presence(activity=actividad)
     await tree.sync()
-    print("Bot truco completo listo!")
+    print("Bot truco completo listo! Jugando a Truco [Bot vs Amigo]")
 
 bot.run(os.getenv("DISCORD_TOKEN") or "TU_TOKEN")
