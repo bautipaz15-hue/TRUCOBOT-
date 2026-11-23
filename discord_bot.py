@@ -29,10 +29,40 @@ def calc_envido(mano):
  if max_e==0: max_e=max([envido_valor(c[0]) for c in mano])
  return max_e
 
-PRECIOS={"river":500,"boca":500,"san lorenzo":500,"racing":500,"oro":700,"diamante":1450,"springtrap":650}
-CODIGOS={"TRUCO2026":1000}
-FILE="usuarios.json"
+# --- PRECIOS FINALES DEFINITIVOS ---
+PRECIOS={
+    "river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,
+    "springtrap":1250,
+    "creeper":1500,"minecraft":1500,
+    "diamante":1800,"oro":1200,"gamer":1200
+}
 
+# CODES DEFINITIVOS
+CODIGOS={
+    "TRUCO2026":1000,
+    "navidad_se_acerca":350,
+    "7_ORO":350,
+    "TRUCO!":0,
+    "1_ESPADA":0,
+    "SPRITE":0,
+    "VICTORY ROYALE":0
+}
+
+PODERES_PRECIO={
+    "MAGO":{"x1":400,"x10":3500},
+    "OJO":{"x1":350,"x10":3000},
+    "ESCUDO":{"x1":500,"x10":4500},
+    "LADRON":{"x1":450,"x10":4000}
+}
+
+EXPRESIONES_TIENDA={
+    "DEFAULT":{"precio":0,"txt":["HOLA","GG"]},
+    "AMIGABLE":{"precio":150,"txt":["`ദ്ദി(ᵔᗜᵔ) HOLA`","`GG`","`BUENA PARTIDA👍`"]},
+    "KAOMOJI":{"precio":250,"txt":["`ദ്ദി(ᵔᗜᵔ)`","`( ✧Д✧) WOW`","`(╥_╥)`"]},
+    "ARTE":{"precio":400,"txt":["`ARTE TEXTO 1`","`ARTE TEXTO 2`"]}
+}
+
+FILE="usuarios.json"
 def load_u():
  if not os.path.exists(FILE): return {}
  try:
@@ -40,9 +70,20 @@ def load_u():
  except: return {}
 def save_u(d):
  with open(FILE,"w") as f: json.dump(d,f,indent=2)
-def add_coins(uid,cant):
+
+def ensure_user(uid):
  data=load_u(); s=str(uid)
- if s not in data: data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[]}
+ if s not in data:
+  data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[],"poderes":{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0},"owned_exp":["DEFAULT"],"exp_equipado":"DEFAULT"}
+ # migración para usuarios viejos
+ data[s].setdefault("poderes",{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0})
+ data[s].setdefault("owned_exp",["DEFAULT"])
+ data[s].setdefault("exp_equipado","DEFAULT")
+ save_u(data)
+ return data
+
+def add_coins(uid,cant):
+ data=ensure_user(uid); s=str(uid)
  data[s]["coins"]=data[s].get("coins",0)+cant
  save_u(data); return data[s]["coins"]
 
@@ -68,7 +109,7 @@ def av():
   if os.path.exists(x): return x
  return None
 
-# --- TIENDA CON BOTONES DINAMICOS (NUEVO) ---
+# --- TIENDA BOTONES ---
 class BotonTienda(discord.ui.Button):
  def __init__(self,nombre,precio,owner):
   self.nombre=nombre; self.precio=precio; self.owner=owner
@@ -82,21 +123,87 @@ class BotonTienda(discord.ui.Button):
  async def callback(self,i):
   if i.user.id!=self.owner: await i.response.send_message("No es tu tienda",ephemeral=True); return
   data=load_u(); s=str(i.user.id)
-  if s not in data: data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[]}
+  if s not in data: data[s]=ensure_user(i.user.id)[s]
   if self.nombre in data[s]["owned"]:
    data[s]["equipado"]=self.nombre; save_u(data)
-   await i.response.edit_message(embed=discord.Embed(title=f"Equipaste {self.nombre.upper()} ✅",description=f"Tu tablero ahora es {self.nombre}",color=0x2ecc71),view=TiendaView(self.owner))
+   await i.response.edit_message(embed=discord.Embed(title=f"Equipaste {self.nombre.upper()} ✅",description=f"Tu tablero ahora es {self.nombre}",color=0x2ecc71),view=TiendaView(self.owner, "tableros"))
   else:
    if data[s]["coins"]<self.precio: await i.response.send_message(f"Te faltan {self.precio-data[s]['coins']} coins",ephemeral=True); return
    data[s]["coins"]-=self.precio; data[s]["owned"].append(self.nombre); save_u(data)
-   await i.response.edit_message(embed=discord.Embed(title=f"Compraste {self.nombre.upper()} ✅",description="Ahora tocalo para equipar",color=0xf1c40f),view=TiendaView(self.owner))
+   await i.response.edit_message(embed=discord.Embed(title=f"Compraste {self.nombre.upper()} ✅",description="Ahora tocalo para equipar",color=0xf1c40f),view=TiendaView(self.owner, "tableros"))
+
+class BotonPoder(discord.ui.Button):
+ def __init__(self,nombre,tipo,precio,owner):
+  self.nombre=nombre; self.tipo=tipo; self.precio=precio; self.owner=owner
+  super().__init__(label=f"{nombre} {tipo} - {precio}",style=discord.ButtonStyle.primary)
+ async def callback(self,i):
+  if i.user.id!=self.owner: return
+  data=load_u(); s=str(i.user.id)
+  ensure_user(i.user.id); data=load_u()
+  if data[s]["coins"]<self.precio: await i.response.send_message(f"Te faltan {self.precio-data[s]['coins']}",ephemeral=True); return
+  cant=1 if self.tipo=="x1" else 10
+  data[s]["coins"]-=self.precio
+  data[s]["poderes"][self.nombre]+=cant
+  save_u(data)
+  await i.response.send_message(f"✅ Compraste {self.nombre} {self.tipo}! Ahora tenes {data[s]['poderes'][self.nombre]}",ephemeral=True)
+
+class BotonExp(discord.ui.Button):
+ def __init__(self,nombre,precio,owner):
+  self.nombre=nombre; self.precio=precio; self.owner=owner
+  data=load_u(); s=str(owner)
+  owned=data.get(s,{}).get("owned_exp",["DEFAULT"]) if s in data else ["DEFAULT"]
+  equip=data.get(s,{}).get("exp_equipado","DEFAULT") if s in data else "DEFAULT"
+  if nombre in owned:
+   if equip==nombre: super().__init__(label=f"{nombre} EQUIPADO ✅",style=discord.ButtonStyle.success,disabled=True)
+   else: super().__init__(label=f"EQUIPAR {nombre}",style=discord.ButtonStyle.success)
+  else: super().__init__(label=f"COMPRAR {nombre} - {precio}",style=discord.ButtonStyle.primary)
+ async def callback(self,i):
+  if i.user.id!=self.owner: return
+  data=load_u(); s=str(i.user.id)
+  ensure_user(i.user.id); data=load_u()
+  if self.nombre in data[s]["owned_exp"]:
+   # EQUIPADO UNICO: reemplaza el anterior
+   anterior=data[s]["exp_equipado"]
+   data[s]["exp_equipado"]=self.nombre
+   save_u(data)
+   await i.response.edit_message(embed=discord.Embed(title=f"Equipaste {self.nombre} ✅",description=f"Se quitó {anterior} y ahora usas {self.nombre}\nExpresiones: {', '.join(EXPRESIONES_TIENDA[self.nombre]['txt'])}",color=0x2ecc71),view=TiendaView(self.owner,"expresiones"))
+  else:
+   if data[s]["coins"]<self.precio: await i.response.send_message(f"Te faltan {self.precio-data[s]['coins']}",ephemeral=True); return
+   data[s]["coins"]-=self.precio
+   data[s]["owned_exp"].append(self.nombre)
+   save_u(data)
+   await i.response.edit_message(embed=discord.Embed(title=f"Compraste {self.nombre} ✅",description="Ahora equipalo",color=0xf1c40f),view=TiendaView(self.owner,"expresiones"))
 
 class TiendaView(discord.ui.View):
- def __init__(self,owner):
+ def __init__(self,owner, categoria="tableros"):
   super().__init__(timeout=300)
-  for n,p in PRECIOS.items(): self.add_item(BotonTienda(n,p,owner))
+  self.owner=owner; self.categoria=categoria
+  if categoria=="tableros":
+   for n,p in PRECIOS.items(): self.add_item(BotonTienda(n,p,owner))
+  elif categoria=="poderes":
+   for nombre in PODERES_PRECIO:
+    self.add_item(BotonPoder(nombre,"x1",PODERES_PRECIO[nombre]["x1"],owner))
+    self.add_item(BotonPoder(nombre,"x10",PODERES_PRECIO[nombre]["x10"],owner))
+  elif categoria=="expresiones":
+   for nombre in EXPRESIONES_TIENDA:
+    if nombre=="DEFAULT": continue
+    self.add_item(BotonExp(nombre,EXPRESIONES_TIENDA[nombre]["precio"],owner))
+  # Botones para cambiar de apartado
+  self.add_item(BtnCambiar("TABLEROS",owner,0))
+  self.add_item(BtnCambiar("PODERES",owner,1))
+  self.add_item(BtnCambiar("EXPRESIONES",owner,2))
 
-# --- VIEWS TRUCO/ENVIDO (TUS VIEJAS) ---
+class BtnCambiar(discord.ui.Button):
+ def __init__(self,label,owner,row):
+  self.owner=owner; super().__init__(label=label,style=discord.ButtonStyle.secondary,row=row+3)
+ async def callback(self,i):
+  if i.user.id!=self.owner: return
+  cat=self.label.lower()
+  data=load_u(); s=str(i.user.id)
+  coins=data.get(s,{}).get("coins",0)
+  await i.response.edit_message(embed=discord.Embed(title=f"🛒 TIENDA {cat.upper()} - {coins} coins",description=f"Apartado: {cat}",color=0xf1c40f),view=TiendaView(self.owner,cat))
+
+# --- VIEWS TRUCO/ENVIDO (TUS VIEJAS SIN CAMBIOS) ---
 class TrucoResp(discord.ui.View):
  def __init__(self,owner):
   super().__init__(timeout=30); self.owner=owner
@@ -140,7 +247,6 @@ class EnvidoResp(discord.ui.View):
   if d: d["pj"]+=1; await i.response.send_message(f"No quiso envido - Ganaste 1 punto")
   self.stop()
 
-# --- VIEWS AMIGO (NUEVO PERO CON FUNCION) ---
 class TrucoRespAmigo(discord.ui.View):
  def __init__(self,pid):
   super().__init__(timeout=30); self.pid=pid
@@ -175,7 +281,6 @@ class EnvidoRespAmigo(discord.ui.View):
   await i.response.send_message(f"No quiso envido - +1 para {d['nombres'][ganador]}")
   self.stop()
 
-# --- EXPRESIONES (TUYO VIEJO, NO LO TOQUE) ---
 class ExpBtn(discord.ui.Button):
  def __init__(self,txt,label,o):
   self.txt=txt; self.o=o
@@ -187,12 +292,12 @@ class ExpBtn(discord.ui.Button):
 class ExpView(discord.ui.View):
  def __init__(self,o):
   super().__init__(timeout=60)
-  self.add_item(ExpBtn("¡Apurate que me duermo!","😴 Me duermo",o))
-  self.add_item(ExpBtn("¿Buscando como se juega?","🔍 Google?",o))
-  self.add_item(ExpBtn("XD","😂 XD",o))
-  self.add_item(ExpBtn("JAJAJA que malo sos","🤣 JAJA",o))
+  data=load_u(); s=str(o)
+  pack=data.get(s,{}).get("exp_equipado","DEFAULT") if s in data else "DEFAULT"
+  txts=EXPRESIONES_TIENDA.get(pack,EXPRESIONES_TIENDA["DEFAULT"])["txt"]
+  for t in txts[:4]:
+   self.add_item(ExpBtn(t, t[:20], o))
 
-# --- CARTAS VS BOT (TUYO + FIX BOT PIENSA + DESACTIVA LOS DOS) ---
 class C(discord.ui.Button):
  def __init__(self,carta,owner):
   self.carta=carta; self.owner=owner
@@ -275,7 +380,6 @@ class V(discord.ui.View):
   self.add_item(ExpOpen(o))
   self.add_item(S(o))
 
-# --- VS AMIGO (NUEVO) ---
 class CartaAmigo(discord.ui.Button):
  def __init__(self,carta,owner,pid):
   self.carta=carta; self.owner=owner; self.pid=pid
@@ -369,16 +473,11 @@ async def jugar(i:discord.Interaction, oponente: discord.Member = None):
  if a and os.path.exists(a): fs.append(discord.File(a,filename="b.jpg")); emb.set_thumbnail(url="attachment://b.jpg")
  await i.response.send_message(embed=emb,view=V(i.user.id,mj),files=fs if fs else None)
 
-@tree.command(name="tienda",description="Tienda con fotos + botones")
+@tree.command(name="tienda",description="Tienda con 3 apartados")
 async def tienda(i:discord.Interaction):
+ ensure_user(i.user.id)
  data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
- files=[]
- for nombre in PRECIOS.keys():
-  t=buscar_tablero(nombre)
-  if t and os.path.exists(t): files.append(discord.File(t,filename=f"{nombre.replace(' ','')}.jpg"))
- e=discord.Embed(title=f"🛒 TIENDA - {coins} coins",description="COMPRAR -> EQUIPAR -> EQUIPADO",color=0xf1c40f)
- if files: e.set_image(url=f"attachment://{files[0].filename}")
- await i.response.send_message(embed=e,view=TiendaView(i.user.id),files=files if files else None, ephemeral=True)
+ await i.response.send_message(embed=discord.Embed(title=f"🛒 TIENDA - {coins} coins",description="Usa los botones de abajo para cambiar: TABLEROS / PODERES / EXPRESIONES\n\nEn EXPRESIONES si equipas uno nuevo se va el anterior (equipado unico)",color=0xf1c40f),view=TiendaView(i.user.id,"tableros"), ephemeral=True)
 
 @tree.command(name="comprar",description="Comprar")
 async def comprar(i:discord.Interaction, tablero: str):
@@ -386,8 +485,7 @@ async def comprar(i:discord.Interaction, tablero: str):
  for k in PRECIOS:
   if k in key or key in k: key=k; break
  if key not in PRECIOS: await i.response.send_message("No existe"); return
- data=load_u(); s=str(i.user.id)
- if s not in data: data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[]}
+ data=ensure_user(i.user.id); s=str(i.user.id)
  if key in data[s]["owned"]: await i.response.send_message(f"Ya tenes {key}"); return
  if data[s]["coins"]<PRECIOS[key]: await i.response.send_message(f"Te faltan {PRECIOS[key]-data[s]['coins']}"); return
  data[s]["coins"]-=PRECIOS[key]; data[s]["owned"].append(key); save_u(data)
@@ -399,7 +497,7 @@ async def comprar(i:discord.Interaction, tablero: str):
 @tree.command(name="equipar",description="Equipar")
 async def equipar(i:discord.Interaction, tablero: str):
  key=tablero.lower()
- data=load_u(); s=str(i.user.id)
+ data=ensure_user(i.user.id); s=str(i.user.id)
  if s not in data or (key!="default" and key not in data[s]["owned"]): await i.response.send_message("No lo tenes"); return
  data[s]["equipado"]=key; save_u(data)
  t=tab_user(i.user.id)
@@ -409,28 +507,59 @@ async def equipar(i:discord.Interaction, tablero: str):
 
 @tree.command(name="perfil",description="Perfil")
 async def perfil(i:discord.Interaction):
+ ensure_user(i.user.id)
  data=load_u(); s=str(i.user.id)
- c=data.get(s,{}).get("coins",0) if s in data else 0
- await i.response.send_message(f"💰 {c} coins")
+ c=data.get(s,{}).get("coins",0)
+ poderes=data.get(s,{}).get("poderes",{})
+ exp=data.get(s,{}).get("exp_equipado","DEFAULT")
+ await i.response.send_message(f"💰 {c} coins\n🎭 Expresion equipada: {exp}\n✨ Poderes: {poderes}")
 
 @tree.command(name="codigos",description="Codigo")
 async def codigos(i:discord.Interaction, codigo: str):
- codigo=codigo.upper()
+ code_upper=codigo.upper()
+ code_original=codigo
+ data=ensure_user(i.user.id); s=str(i.user.id)
  data=load_u(); s=str(i.user.id)
- if s not in data: data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[]}
- if codigo not in CODIGOS: await i.response.send_message("Invalido"); return
- if codigo in data[s]["codigos"]: await i.response.send_message("Ya canjeado"); return
- data[s]["coins"]+=CODIGOS[codigo]; data[s]["codigos"].append(codigo); save_u(data)
- await i.response.send_message(f"+{CODIGOS[codigo]} coins! Total {data[s]['coins']}")
+ # buscar code sin importar mayusculas
+ found=None
+ for k in CODIGOS:
+  if k.upper()==code_upper: found=k; break
+ if not found:
+  await i.response.send_message("❌ Codigo invalido"); return
+ if found in data[s]["codigos"]:
+  await i.response.send_message("Ya canjeado"); return
+  
+ if found=="SPRITE":
+  data[s]["owned"].append("espiritus") if "espiritus" not in data[s]["owned"] else None
+  data[s]["equipado"]="espiritus"
+  data[s]["codigos"].append(found); save_u(data)
+  t=buscar_tablero("espiritus")
+  await i.response.send_message(f"✅ Code {found} canjeado! Desbloqueaste TABLERO ESPIRITUS",file=discord.File(t,filename="esp.jpg") if t and os.path.exists(t) else None)
+  return
+ if found=="VICTORY ROYALE":
+  data[s]["owned"].append("fortnite") if "fortnite" not in data[s]["owned"] else None
+  data[s]["equipado"]="fortnite"
+  data[s]["codigos"].append(found); save_u(data)
+  t=buscar_tablero("fortnite")
+  await i.response.send_message(f"✅ Code {found} canjeado! Desbloqueaste TABLERO FORTNITE #1 Victory Royale",file=discord.File(t,filename="fort.jpg") if t and os.path.exists(t) else None)
+  return
+ if found in ["TRUCO!","1_ESPADA"]:
+  if found=="TRUCO!": data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1
+  if found=="1_ESPADA": data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1
+  data[s]["codigos"].append(found); save_u(data)
+  await i.response.send_message(f"✅ Code {found} -> +1 MAGO! Tenes {data[s]['poderes']['MAGO']}"); return
+
+ data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data)
+ await i.response.send_message(f"+{CODIGOS[found]} coins! Total {data[s]['coins']}")
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
- e=discord.Embed(title="AYUDA",description="/jugar - Truco y Envido FUNCIONAN\n/jugar @amigo - por turnos, ve su tablero\n/tienda con botones COMPRAR/EQUIPAR/EQUIPADO\nGanaste 1 punto / Perdiste 1 punto\nExpresiones y Salir siguen",color=0x9b59b6)
+ e=discord.Embed(title="AYUDA ACTU DEFINITIVA",description="/jugar - vs bot / @amigo\n/tienda -> 3 apartados: TABLEROS / PODERES x1 x10 / EXPRESIONES (equipado unico, se reemplaza)\n/codigos SPRITE = espiritus, VICTORY ROYALE = fortnite\n/equipar y /comprar siguen\nTableros: canchas 1000, springtrap 1250, creeper/minecraft 1500",color=0x9b59b6)
  await i.response.send_message(embed=e)
 
 @bot.event
 async def on_ready():
  await tree.sync()
- print("FINAL: con tus actus viejas + fixes nuevos, sin borrar nada")
+ print("ACTU DEFINITIVA: Precios iguales canchas, springtrap 1250, creeper/minecraft 1500, VICTORY ROYALE, poderes x1/x10, expresiones reemplazo")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
