@@ -71,19 +71,21 @@ def add_win(uid,tipo):
 
 def buscar_tablero(nombre):
  if not os.path.exists("tableros"): return None
- nombre=nombre.lower().replace(" ","").replace("_","").replace("-","")
+ nombre=nombre.lower().strip()
+ mapa={"default":["tablero.jpg","default"],"river":["river"],"boca":["boca"],"san lorenzo":["san lorenzo","sanlorenzo"],"racing":["racing"],"springtrap":["springtrap"],"creeper":["creeper"],"minecraft":["minecraft"],"diamante":["diamante"],"oro":["oro"],"gamer":["gamer"],"espiritus":["espiritus","sprite"],"fortnite":["fortnite","victory"]}
+ posibles=mapa.get(nombre,[nombre])
  for f in os.listdir("tableros"):
-  fl=f.lower().replace(" ","").replace("_","").replace("-","")
-  if "sanlorenzo" in nombre and "sanlorenzo" in fl: return os.path.join("tableros",f)
-  if nombre in fl: return os.path.join("tableros",f)
- return None
+  fl=f.lower()
+  for p in posibles:
+   if p in fl: return os.path.join("tableros",f)
+ return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
 
 def tab_user(uid):
  data=load_u(); s=str(uid)
- eq=data.get(s,{}).get("equipado","default").lower() if s in data else "default"
- if eq=="default": return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
+ eq=data.get(s,{}).get("equipado","default") if s in data else "default"
  t=buscar_tablero(eq)
- return t if t and os.path.exists(t) else "tableros/Tablero.jpg"
+ if t and os.path.exists(t): return t
+ return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
 
 def av():
  for x in ["bot_rojo.png","tableros/bot_rojo.png"]:
@@ -281,14 +283,30 @@ class ViewAmigos(discord.ui.View):
 
 @tree.command(name="jugar",description="Jugar vs bot o amigo")
 async def jugar(i:discord.Interaction, oponente: discord.Member = None):
+ ensure_user(i.user.id)
  if oponente and oponente.id!=i.user.id and not oponente.bot:
   m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mo=[m.pop() for _ in range(3)]
   pid=f"{i.user.id}_{oponente.id}_{random.randint(1,99999)}"
   partidas[pid]={"jugadas":{},"puntos":{i.user.id:0,oponente.id:0},"nombres":{i.user.id:i.user.display_name,oponente.id:oponente.display_name},"turno":i.user.id,"mano":{i.user.id:mj, oponente.id:mo},"envido_jugado":False}
-  await i.response.send_message(embed=discord.Embed(title=f"TRUCO {i.user.display_name} vs {oponente.display_name}",color=0xe74c3c),view=ViewAmigos(pid,i.user.id,oponente.id,mj,mo)); return
+  data=load_u(); equip=data.get(str(i.user.id),{}).get("equipado","default")
+  tpath=tab_user(i.user.id)
+  emb=discord.Embed(title=f"TRUCO {i.user.display_name} vs {oponente.display_name}", description=f"Tablero: {equip.upper()}", color=0xe74c3c)
+  view=ViewAmigos(pid,i.user.id,oponente.id,mj,mo)
+  if tpath and os.path.exists(tpath):
+   await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
+  else:
+   await i.response.send_message(embed=emb, view=view)
+  return
  m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
  partidas[i.user.id]={"bot":mb,"mano_jugador":mj,"mano_bot":mb.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False}
- await i.response.send_message(embed=discord.Embed(title="TRUCO",color=0x1e8449),view=V(i.user.id,mj))
+ data=load_u(); equip=data.get(str(i.user.id),{}).get("equipado","default")
+ tpath=tab_user(i.user.id)
+ emb=discord.Embed(title="TRUCO", description=f"Tablero: {equip.upper()}", color=0x1e8449)
+ view=V(i.user.id,mj)
+ if tpath and os.path.exists(tpath):
+  await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
+ else:
+  await i.response.send_message(embed=emb, view=view)
 
 @tree.command(name="tienda",description="Tienda de truco")
 @app_commands.choices(categoria=[
@@ -302,7 +320,7 @@ async def tienda(i:discord.Interaction, categoria: str):
  data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
  embed=discord.Embed(title=f"🛒 TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f)
  if categoria=="tableros": embed.description="Compra y equipa tableros (GAMER solo por codigo)"
- elif categoria=="poderes": embed.description="Compra poderes x1 y x10 - aparecen en partida"
+ elif categoria=="poderes": embed.description="Compra poderes x1 y x10"
  else: embed.description="Expresiones - equipado unico"
  await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
@@ -328,7 +346,7 @@ async def equipar(i:discord.Interaction):
  owned_tabs=data.get(s,{}).get("owned",["default"])
  owned_exps=data.get(s,{}).get("owned_exp",["DEFAULT"])
  poderes=data.get(s,{}).get("poderes",{})
- emb=discord.Embed(title="🎒 EQUIPAR",description=f"TABLEROS: {len(owned_tabs)} (SECRETOS solo si los canjeaste)\nEXPRESIONES: {len(owned_exps)}\nPODERES: {poderes} (aparecen en partida, no se equipan)\n\nUsa los desplegables:",color=0x2ecc71)
+ emb=discord.Embed(title="🎒 EQUIPAR",description=f"TABLEROS: {len(owned_tabs)} (SECRETOS solo si los canjeaste)\nEXPRESIONES: {len(owned_exps)}\nPODERES: {poderes}\n\nUsa los desplegables:",color=0x2ecc71)
  await i.followup.send(embed=emb,view=EquiparView(i.user.id),ephemeral=True)
 
 @tree.command(name="perfil",description="Perfil")
@@ -348,9 +366,8 @@ async def codigos(i:discord.Interaction, codigo: str):
   await i.followup.send("❌ Codigo invalido"); return
  if found in data[s]["codigos"]:
   await i.followup.send("❌ Ya canjeado"); return
-
  if found=="SPRITE":
-  data[s]["owned"].append("espiritus") if "espiritus" not in data[s]["owned"] else None
+  if "espiritus" not in data[s]["owned"]: data[s]["owned"].append("espiritus")
   data[s]["equipado"]="espiritus"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("espiritus")
   emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de ESPIRITUS!**",color=0x9b59b6)
@@ -358,15 +375,15 @@ async def codigos(i:discord.Interaction, codigo: str):
   else: await i.followup.send(embed=emb)
   return
  if found=="VICTORY ROYALE":
-  data[s]["owned"].append("fortnite") if "fortnite" not in data[s]["owned"] else None
+  if "fortnite" not in data[s]["owned"]: data[s]["owned"].append("fortnite")
   data[s]["equipado"]="fortnite"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("fortnite")
-  emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de FORTNITE!** #1 Victory Royale",color=0x9b59b6)
+  emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de FORTNITE!**",color=0x9b59b6)
   if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="fort.jpg"))
   else: await i.followup.send(embed=emb)
   return
  if found=="GAMER":
-  data[s]["owned"].append("gamer") if "gamer" not in data[s]["owned"] else None
+  if "gamer" not in data[s]["owned"]: data[s]["owned"].append("gamer")
   data[s]["equipado"]="gamer"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("gamer")
   emb=discord.Embed(title="✅ CANJEADO!",description="🎮 **Conseguiste el tablero SECRETO GAMER!**",color=0x00ff00)
@@ -376,17 +393,16 @@ async def codigos(i:discord.Interaction, codigo: str):
  if found in ["TRUCO!","1_ESPADA"]:
   data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1; data[s]["codigos"].append(found); save_u(data)
   await i.followup.send(f"✨ **Conseguiste 1 poder MAGO!** Total: {data[s]['poderes']['MAGO']}"); return
-
  data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data)
  await i.followup.send(f"💰 **+{CODIGOS[found]} coins!** Total: {data[s]['coins']}")
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
- await i.response.send_message(embed=discord.Embed(title="AYUDA",description="/tienda tableros/poderes/expresiones\n/equipar desplegable (secretos solo si canjeados)\n/codigos secretos\n/ranking",color=0x9b59b6))
+ await i.response.send_message(embed=discord.Embed(title="AYUDA",description="/tienda /equipar /codigos /jugar",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
  await tree.sync()
- print("FINAL: sin spoiler")
+ print("FINAL FIX TABLEROS EN PARTIDA")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
