@@ -23,79 +23,70 @@ PALOS = ["espada","basto","oro","copa"]
 NUMEROS = [1,2,3,4,5,6,7,10,11,12]
 USUARIOS_FILE = "usuarios.json"
 
-# --- MAPEO REAL DE TUS CARTAS ---
+# --- CARTAS ---
 CARPETA_CARTAS = "Cartas_reales"
 MAPA_CARTAS = {
-    (1, "oro"): "WA_1795360976029.jpeg",
-    (2, "oro"): "WA_1795361008859.jpeg",
-    (3, "oro"): "WA_1795361029880.jpeg",
-    (4, "oro"): "WA_1795361045359.jpeg",
-    (5, "oro"): "WA_1795361059645.jpeg",
-    (6, "oro"): "WA_1795361075067.jpeg",
-    (7, "oro"): "f298a3b4410a23085a92f853f79a248d.jpg",
-    (10, "oro"): "WA_1795361089117.jpeg",
-    (11, "oro"): "WA_1795361103363.jpeg",
-    (12, "oro"): "WA_1795361115693.jpeg",
-    (1, "copa"): "WA_1795361133619.jpeg",
-    (2, "copa"): "WA_1795361147081.jpeg",
-    (3, "copa"): "WA_1795361159409.jpeg",
-    (4, "copa"): "WA_1795361167029.jpeg",
-    (5, "copa"): "WA_1795361181627.jpeg",
-    (6, "copa"): "WA_1795361194858.jpeg",
-    (7, "copa"): "WA_1795361207200.jpeg",
-    (10, "copa"): "WA_1795361223477.jpeg",
-    (11, "copa"): "WA_1795361247470.jpeg",
-    (12, "copa"): "WA_1795361256354.jpeg",
-    (1, "espada"): "WA_1795361273879.jpeg",
-    (2, "espada"): "WA_1795361291920.jpeg",
-    (3, "espada"): "WA_1795361309028.jpeg",
-    (4, "espada"): "WA_1795361319086.jpeg",
-    (5, "espada"): "WA_1795361329193.jpeg",
-    (6, "espada"): "WA_1795361338149.jpeg",
-    (7, "espada"): "WA_1795361346453.jpeg",
-    (10, "espada"): "WA_1795361359955.jpeg",
-    (11, "espada"): "WA_1795361370531.jpeg",
-    (12, "espada"): "WA_1795361377563.jpeg",
-    (1, "basto"): "WA_1795361405106.jpeg",
-    (2, "basto"): "WA_1795361414925.jpeg",
-    (3, "basto"): "WA_1795361426382.jpeg",
-    (4, "basto"): "WA_1795361435086.jpeg",
-    (5, "basto"): "WA_1795361445594.jpeg",
-    (6, "basto"): "WA_1795361455619.jpeg",
-    (7, "basto"): "WA_1795361462938.jpeg",
-    (10, "basto"): "WA_1795361479310.jpeg",
-    (11, "basto"): "WA_1795361489348.jpeg",
-    (12, "basto"): "WA_1795361496548.jpeg",
+    (1, "oro"): "WA_1795360976029.jpeg", (2, "oro"): "WA_1795361008859.jpeg", (3, "oro"): "WA_1795361029880.jpeg",
+    (4, "oro"): "WA_1795361045359.jpeg", (5, "oro"): "WA_1795361059645.jpeg", (6, "oro"): "WA_1795361075067.jpeg",
+    (7, "oro"): "f298a3b4410a23085a92f853f79a248d.jpg", (10, "oro"): "WA_1795361089117.jpeg",
+    (11, "oro"): "WA_1795361103363.jpeg", (12, "oro"): "WA_1795361115693.jpeg",
+    (1, "copa"): "WA_1795361133619.jpeg", (2, "copa"): "WA_1795361147081.jpeg", (3, "copa"): "WA_1795361159409.jpeg",
+    (4, "copa"): "WA_1795361167029.jpeg", (5, "copa"): "WA_1795361181627.jpeg", (6, "copa"): "WA_1795361194858.jpeg",
+    (7, "copa"): "WA_1795361207200.jpeg", (10, "copa"): "WA_1795361223477.jpeg",
+    (11, "copa"): "WA_1795361247470.jpeg", (12, "copa"): "WA_1795361256354.jpeg",
+    (1, "espada"): "WA_1795361273879.jpeg", (2, "espada"): "WA_1795361291920.jpeg", (3, "espada"): "WA_1795361309028.jpeg",
+    (4, "espada"): "WA_1795361319086.jpeg", (5, "espada"): "WA_1795361329193.jpeg", (6, "espada"): "WA_1795361338149.jpeg",
+    (7, "espada"): "WA_1795361346453.jpeg", (10, "espada"): "WA_1795361359955.jpeg",
+    (11, "espada"): "WA_1795361370531.jpeg", (12, "espada"): "WA_1795361377563.jpeg",
+    (1, "basto"): "WA_1795361405106.jpeg", (2, "basto"): "WA_1795361414925.jpeg", (3, "basto"): "WA_1795361426382.jpeg",
+    (4, "basto"): "WA_1795361435086.jpeg", (5, "basto"): "WA_1795361445594.jpeg", (6, "basto"): "WA_1795361455619.jpeg",
+    (7, "basto"): "WA_1795361462938.jpeg", (10, "basto"): "WA_1795361479310.jpeg",
+    (11, "basto"): "WA_1795361489348.jpeg", (12, "basto"): "WA_1795361496548.jpeg",
 }
 DORSO = "WA_1795360931463.jpeg"
+def foto_carta(n,p):
+    nom = MAPA_CARTAS.get((n,p))
+    if nom:
+        r = os.path.join(CARPETA_CARTAS, nom)
+        if os.path.exists(r): return r
+    rd = os.path.join(CARPETA_CARTAS, DORSO)
+    return rd if os.path.exists(rd) else None
 
-def foto_carta(numero, palo):
-    nombre = MAPA_CARTAS.get((numero, palo))
-    if nombre:
-        ruta = os.path.join(CARPETA_CARTAS, nombre)
-        if os.path.exists(ruta): return ruta
-    ruta_dorso = os.path.join(CARPETA_CARTAS, DORSO)
-    return ruta_dorso if os.path.exists(ruta_dorso) else None
+# VALOR TRUCO REAL
+VALOR_TRUCO = {
+    (1, "espada"): 14, (1, "basto"): 13, (7, "espada"): 12, (7, "oro"): 11,
+    3: 10, 2: 9, 1: 8, 12: 7, 11: 6, 10: 5, 7: 4, 6: 3, 5: 2, 4: 1
+}
+def valor_truco_carta(numero, palo):
+    if (numero, palo) in VALOR_TRUCO: return VALOR_TRUCO[(numero, palo)]
+    return VALOR_TRUCO.get(numero, 0)
 
 def get_bot_avatar():
-    for n in ["bot_rojo.png", "bot_rojo.jpg", "bot_rojo.jpeg", "bot_rojo.pnj", "bot_rojo.PNG"]:
+    for n in ["bot_rojo.png", "bot_rojo.jpg", "bot_rojo.jpeg", "bot_rojo.pnj"]:
         if os.path.exists(n): return n
         if os.path.exists(f"tableros/{n}"): return f"tableros/{n}"
     return None
 
+def get_default_tablero():
+    # TU DEFAULT ESTA EN tableros/
+    if os.path.exists("tableros/Tablero.jpg"): return "tableros/Tablero.jpg"
+    if os.path.exists("tableros/tablero.jpg"): return "tableros/tablero.jpg"
+    if os.path.exists("Tablero.jpg"): return "Tablero.jpg"
+    if os.path.exists("tableros"):
+        for f in os.listdir("tableros"):
+            if "tablero" in f.lower() or "madera" in f.lower() or "default" in f.lower():
+                return os.path.join("tableros", f)
+    return None
+
 TIENDA_TABLEROS = {
-    "boca": {"nombre": "Boca", "precio": 100, "keyword": "boca"},
-    "river": {"nombre": "River", "precio": 100, "keyword": "river"},
-    "racing": {"nombre": "Racing", "precio": 100, "keyword": "racing"},
-    "casla": {"nombre": "San Lorenzo", "precio": 100, "keyword": "san_lorenzo"},
-    "oro": {"nombre": "Oro", "precio": 500, "keyword": "oro"},
-    "diamante": {"nombre": "Diamante", "precio": 1000, "keyword": "diamante"},
+    "boca": {"nombre": "Boca", "precio": 100, "keyword": "boca"}, "river": {"nombre": "River", "precio": 100, "keyword": "river"},
+    "racing": {"nombre": "Racing", "precio": 100, "keyword": "racing"}, "casla": {"nombre": "San Lorenzo", "precio": 100, "keyword": "san_lorenzo"},
+    "oro": {"nombre": "Oro", "precio": 500, "keyword": "oro"}, "diamante": {"nombre": "Diamante", "precio": 1000, "keyword": "diamante"},
     "fnaf": {"nombre": "FNAF Springtrap", "precio": 1500, "keyword": "springtrap"},
 }
 CODIGOS = {
-    "navidad_se_acerca": {"tipo": "trucoins", "valor": 500, "desc": "500 Trucoins"},
-    "gaming": {"tipo": "tablero", "valor": "neon", "desc": "Tablero Gamer Neon EXCLUSIVO"},
-    "truco!": {"tipo": "poder", "valor": "random", "desc": "1 Poder Random"},
+    "navidad_se_acerca": {"tipo": "trucoins", "valor": 500}, "gaming": {"tipo": "tablero", "valor": "neon"},
+    "truco!": {"tipo": "poder", "valor": "random"},
 }
 PODERES_DISPONIBLES = ["ver_carta_rival", "cambiar_carta", "doble_puntos_envido", "esconder_carta"]
 
@@ -107,33 +98,29 @@ def cargar_usuarios():
 def guardar_usuarios(data):
     with open(USUARIOS_FILE, "w") as f: json.dump(data, f, indent=2)
 def get_or_create_user(user_id):
-    data = cargar_usuarios()
-    uid = str(user_id)
+    data = cargar_usuarios(); uid = str(user_id)
     if uid not in data:
         data[uid] = {"wins":0, "losses":0, "trucoins":300, "tableros":["default"], "equipado":"default", "poderes":[], "codigos_usados":[]}
         guardar_usuarios(data)
     return data[uid], data
 
 def buscar_archivo_tablero(keyword):
-    carpeta = "tableros"
-    if keyword == "default" or keyword == "madera":
-        return "Tablero.jpg" if os.path.exists("Tablero.jpg") else None
-    if not os.path.exists(carpeta): return "Tablero.jpg" if os.path.exists("Tablero.jpg") else None
-    keyword = keyword.lower()
-    for archivo in os.listdir(carpeta):
-        if keyword in archivo.lower(): return os.path.join(carpeta, archivo)
+    if os.path.exists("tableros"):
+        kw = keyword.lower()
+        for archivo in os.listdir("tableros"):
+            if kw in archivo.lower(): return os.path.join("tableros", archivo)
     return None
 
 def get_tablero_path_user(user_id):
     usuario, _ = get_or_create_user(user_id)
     equipado = usuario.get("equipado", "default")
-    if equipado == "default": return "Tablero.jpg" if os.path.exists("Tablero.jpg") else None
+    if equipado == "default": return get_default_tablero()
     if equipado == "neon":
-        p = buscar_archivo_tablero("gamer"); return p if p else "Tablero.jpg"
+        p = buscar_archivo_tablero("gamer"); return p if p else get_default_tablero()
     info = TIENDA_TABLEROS.get(equipado)
     if info:
-        p = buscar_archivo_tablero(info["keyword"]); return p if p else "Tablero.jpg"
-    p = buscar_archivo_tablero(equipado); return p if p else "Tablero.jpg"
+        p = buscar_archivo_tablero(info["keyword"]); return p if p else get_default_tablero()
+    p = buscar_archivo_tablero(equipado); return p if p else get_default_tablero()
 
 def calcular_envido(cartas):
     mejor=0
@@ -149,6 +136,7 @@ def calcular_envido(cartas):
             if v>mejor: mejor=v
     return mejor
 
+# --- BOTONES CON GANADOR Y FOTO ---
 class CartaButton(discord.ui.Button):
     def __init__(self,carta,owner):
         self.carta=carta; self.owner=owner
@@ -156,20 +144,27 @@ class CartaButton(discord.ui.Button):
     async def callback(self,interaction: discord.Interaction):
         if interaction.user.id!=self.owner:
             await interaction.response.send_message("No es tu partida",ephemeral=True); return
-        self.disabled = True
-        self.label = f"✓ {self.carta[0]} de {self.carta[1]}"
+        self.disabled=True; self.label=f"✓ {self.carta[0]} de {self.carta[1]}"
         data_partida = partidas.get(self.owner)
         if not data_partida or not data_partida["bot"]:
             await interaction.response.edit_message(view=self.view); return
         carta_bot = data_partida["bot"].pop(0)
+        
+        v_yo = valor_truco_carta(self.carta[0], self.carta[1])
+        v_bot = valor_truco_carta(carta_bot[0], carta_bot[1])
+        if v_yo > v_bot: ganador = f"🏆 ¡GANASTE vos con {self.carta[0]} de {self.carta[1]}!"
+        elif v_bot > v_yo: ganador = f"😢 Ganó {data_partida['nombre']} con {carta_bot[0]} de {carta_bot[1]}"
+        else: ganador = "🤝 EMPATE - Parda!"
+        
         data_partida["jugadas"].append((self.carta, carta_bot))
         files=[]
         r1 = foto_carta(self.carta[0], self.carta[1])
         r2 = foto_carta(carta_bot[0], carta_bot[1])
         if r1 and os.path.exists(r1): files.append(discord.File(r1, filename="yo.jpg"))
-        if r2 and os.path.exists(r2): files.append(discord.File(r2, filename="bot.jpg"))
+        if r2 and os.path.exists(r2): files.append(discord.File(r2, filename="bot_carta.jpg"))
+        
         await interaction.response.edit_message(view=self.view)
-        await interaction.followup.send(f"**Vos:** {self.carta[0]} de {self.carta[1]}\n**{data_partida['nombre']}:** {carta_bot[0]} de {carta_bot[1]}", files=files if files else None)
+        await interaction.followup.send(f"**Vos:** {self.carta[0]} de {self.carta[1]} (valor {v_yo})\n**{data_partida['nombre']}:** {carta_bot[0]} de {carta_bot[1]} (valor {v_bot})\n\n**{ganador}**", files=files if files else None)
 
 class TrucoButton(discord.ui.Button):
     def __init__(self,owner): self.owner=owner; super().__init__(label="TRUCO",style=discord.ButtonStyle.danger,row=1)
@@ -213,8 +208,7 @@ class CartaAmigoButton(discord.ui.Button):
         if interaction.user.id not in [self.j1,self.j2]: await interaction.response.send_message("No sos parte",ephemeral=True); return
         if interaction.user.id!=self.parent.turno: await interaction.response.send_message("No es tu turno!",ephemeral=True); return
         self.disabled=True; self.parent.turno=self.j2 if interaction.user.id==self.j1 else self.j1
-        files=[]
-        ruta = foto_carta(self.carta[0], self.carta[1])
+        files=[]; ruta = foto_carta(self.carta[0], self.carta[1])
         if ruta and os.path.exists(ruta): files.append(discord.File(ruta, filename="carta.jpg"))
         await interaction.response.edit_message(view=self.parent)
         await interaction.followup.send(f"{interaction.user.mention} tiro {self.carta[0]} de {self.carta[1]} - Turno <@{self.parent.turno}>", files=files if files else None)
@@ -244,14 +238,21 @@ async def jugar(interaction: discord.Interaction):
     mano_jugador=[mazo.pop() for _ in range(3)]; mano_bot=[mazo.pop() for _ in range(3)]
     nombre=random.choice(NOMBRES_BOTS)
     partidas[interaction.user.id]={"jugador":mano_jugador, "bot":mano_bot, "envido":calcular_envido(mano_jugador), "nombre":nombre, "jugadas":[]}
-    # BOT SIEMPRE USA DEFAULT
-    tablero_path = "Tablero.jpg" if os.path.exists("Tablero.jpg") else None
+    
+    tablero_path = get_default_tablero()
     bot_avatar = get_bot_avatar()
+    
     embed=discord.Embed(title="MESA TRUCO 1v1",description=f"{nombre} VS {interaction.user.mention}\nEnvido: {partidas[interaction.user.id]['envido']}",color=0x1e8449)
     files=[]
-    if tablero_path: files.append(discord.File(tablero_path, filename="tablero.jpg")); embed.set_image(url="attachment://tablero.jpg")
-    if bot_avatar: files.append(discord.File(bot_avatar, filename="bot.jpg")); embed.set_thumbnail(url="attachment://bot.jpg")
-    else: embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    if tablero_path and os.path.exists(tablero_path):
+        files.append(discord.File(tablero_path, filename="tablero.jpg"))
+        embed.set_image(url="attachment://tablero.jpg")
+    if bot_avatar and os.path.exists(bot_avatar):
+        files.append(discord.File(bot_avatar, filename="bot_rojo.jpg"))
+        embed.set_thumbnail(url="attachment://bot_rojo.jpg")
+    else:
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    
     view=MesaView(interaction.user.id,mano_jugador)
     if files: await interaction.response.send_message(embed=embed, view=view, files=files)
     else: await interaction.response.send_message(embed=embed,view=view)
@@ -266,17 +267,11 @@ async def desafiar(interaction: discord.Interaction,amigo: discord.Member):
     embed.set_thumbnail(url=amigo.display_avatar.url)
     view=MesaAmigosView(interaction.user.id,amigo.id,mano)
     files=[]
-    # MUESTRA LOS DOS TABLEROS
     if tablero_j1 and os.path.exists(tablero_j1): files.append(discord.File(tablero_j1, filename="tablero_j1.jpg"))
-    if tablero_j2 and os.path.exists(tablero_j2): 
-        # Si son iguales no duplicamos
-        if not tablero_j1 or os.path.abspath(tablero_j1) != os.path.abspath(tablero_j2):
-            files.append(discord.File(tablero_j2, filename="tablero_j2.jpg"))
+    if tablero_j2 and os.path.exists(tablero_j2) and os.path.abspath(tablero_j1 or "") != os.path.abspath(tablero_j2):
+        files.append(discord.File(tablero_j2, filename="tablero_j2.jpg"))
     if files:
-        # Usa el primero como imagen principal
         embed.set_image(url=f"attachment://{files[0].filename}")
-        desc_extra = f"\nTableros: {os.path.basename(tablero_j1) if tablero_j1 else 'default'} vs {os.path.basename(tablero_j2) if tablero_j2 else 'default'}"
-        embed.description += desc_extra
         await interaction.response.send_message(content=f"{amigo.mention} te desafiaron!",embed=embed,view=view,files=files)
     else:
         await interaction.response.send_message(content=f"{amigo.mention} te desafiaron!",embed=embed,view=view)
@@ -299,7 +294,7 @@ async def ranking(interaction: discord.Interaction):
     if not data: await interaction.response.send_message("Aún no hay datos", ephemeral=True); return
     orden = sorted(data.items(), key=lambda x: x[1].get("wins",0), reverse=True)
     texto = "🏆 **RANKING TRUCOBOT**\n\n"
-    for i, (uid, info) in enumerate(orden[:10], 1): texto += f"{i}. <@{uid}> - {info.get('wins',0)}W / {info.get('losses',0)}L\n"
+    for i, (uid, info) in enumerate(orden[:10], 1): texto += f"{i}. <@{uid}> - {info.get('wins',0)}W\n"
     await interaction.response.send_message(texto)
 
 @tree.command(name="equipar", description="Equipar un tablero")
@@ -329,11 +324,9 @@ async def codigos(interaction: discord.Interaction, codigo: str):
     if codigo in usuario.get("codigos_usados", []): await interaction.response.send_message(f"Ya usaste ese código", ephemeral=True); return
     info = CODIGOS[codigo]
     if info["tipo"] == "trucoins": usuario["trucoins"] += info["valor"]; texto = f"Canjeaste {codigo} - Ganaste {info['valor']} Trucoins!"
-    elif info["tipo"] == "tablero":
+    else:
         if info["valor"] not in usuario["tableros"]: usuario["tableros"].append(info["valor"])
         usuario["equipado"] = info["valor"]; texto = f"Canjeaste {codigo} - Desbloqueaste {info['valor'].upper()}!"
-    else:
-        poder = random.choice(PODERES_DISPONIBLES); usuario["poderes"].append(poder); texto = f"Canjeaste {codigo} - Ganaste poder: {poder}"
     usuario["codigos_usados"].append(codigo); all_data[str(interaction.user.id)] = usuario; guardar_usuarios(all_data)
     await interaction.response.send_message(texto)
 
