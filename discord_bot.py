@@ -87,11 +87,6 @@ def tab_user(uid):
  if t and os.path.exists(t): return t
  return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
 
-def av():
- for x in ["bot_rojo.png","tableros/bot_rojo.png"]:
-  if os.path.exists(x): return x
- return None
-
 class TableroSelect(discord.ui.Select):
  def __init__(self,owner):
   self.owner=owner
@@ -204,16 +199,16 @@ class TiendaView(discord.ui.View):
 
 class TrucoResp(discord.ui.View):
  def __init__(self,owner): super().__init__(timeout=30); self.owner=owner
- @discord.ui.button(label="QUIERO",style=discord.ButtonStyle.success)
- async def quiero(self,i,b): d=partidas.get(self.owner); d["truco_nivel"]+=1; await i.response.send_message("QUIERO!"); self.stop()
- @discord.ui.button(label="NO QUIERO",style=discord.ButtonStyle.danger)
- async def no(self,i,b): d=partidas.get(self.owner); d["pj"]=2; await i.response.send_message("NO QUIERO!"); self.stop()
+ @discord.ui.button(label="QUIERO 😎",style=discord.ButtonStyle.success)
+ async def quiero(self,i,b): d=partidas.get(self.owner); d["truco_nivel"]+=1; await i.response.send_message("🔥 ¡QUIERO! 😎"); self.stop()
+ @discord.ui.button(label="NO QUIERO 😔",style=discord.ButtonStyle.danger)
+ async def no(self,i,b): d=partidas.get(self.owner); d["pj"]=2; await i.response.send_message("😔 NO QUIERO..."); self.stop()
 class EnvidoResp(discord.ui.View):
  def __init__(self,owner): super().__init__(timeout=30); self.owner=owner
- @discord.ui.button(label="QUIERO",style=discord.ButtonStyle.success)
- async def quiero(self,i,b): d=partidas.get(self.owner); d["pj"]+=2; await i.response.send_message("QUIERO ENVIDO"); d["envido_jugado"]=True; self.stop()
- @discord.ui.button(label="NO QUIERO",style=discord.ButtonStyle.danger)
- async def no(self,i,b): d=partidas.get(self.owner); d["pj"]+=1; await i.response.send_message("+1"); self.stop()
+ @discord.ui.button(label="QUIERO 😎",style=discord.ButtonStyle.success)
+ async def quiero(self,i,b): d=partidas.get(self.owner); d["pj"]+=2; await i.response.send_message("💰 ¡QUIERO ENVIDO! 😎"); d["envido_jugado"]=True; self.stop()
+ @discord.ui.button(label="NO QUIERO 😔",style=discord.ButtonStyle.danger)
+ async def no(self,i,b): d=partidas.get(self.owner); d["pj"]+=1; await i.response.send_message("😔 +1 para vos..."); self.stop()
 class TrucoRespAmigo(discord.ui.View):
  def __init__(self,pid): super().__init__(timeout=30); self.pid=pid
  @discord.ui.button(label="QUIERO",style=discord.ButtonStyle.success)
@@ -234,33 +229,81 @@ class ExpView(discord.ui.View):
   super().__init__(timeout=60)
   data=load_u(); s=str(o); pack=data.get(s,{}).get("exp_equipado","DEFAULT"); txts=EXPRESIONES_TIENDA.get(pack,EXPRESIONES_TIENDA["DEFAULT"])["txt"]
   for t in txts[:4]: self.add_item(ExpBtn(t,t[:20],o))
+
+# --- JUGABILIDAD NUEVA ---
 class C(discord.ui.Button):
- def __init__(self,carta,owner): self.carta=carta; self.owner=owner; super().__init__(label=f"{carta[0]} de {carta[1]}",style=discord.ButtonStyle.primary,row=0)
+ def __init__(self,carta,owner): self.carta=carta; self.owner=owner; super().__init__(label=f"{carta[0]} de {carta[1]} 🃏",style=discord.ButtonStyle.primary,row=0)
  async def callback(self,i):
   if i.user.id!=self.owner: return
-  d=partidas.get(self.owner); self.disabled=True; await i.response.edit_message(view=self.view)
-  await i.followup.send(f"Tiraste {self.carta[0]} de {self.carta[1]}"); await asyncio.sleep(1)
-  cb=d["bot"].pop(0); vy=v(self.carta[0],self.carta[1]); vb=v(cb[0],cb[1])
-  if vy>vb: d["pj"]+=1; txt=f"Ganaste {d['pj']}-{d['pb']}"
-  else: d["pb"]+=1; txt=f"Perdiste {d['pj']}-{d['pb']}"
+  d=partidas.get(self.owner)
+  if not d: return
+  self.disabled=True
+  await i.response.edit_message(view=self.view)
+  await i.followup.send(f"🃏 Tiraste **{self.carta[0]} de {self.carta[1]}**")
+  msg_pensando = await i.followup.send("🤖 **BOT PENSANDO...**")
+  await asyncio.sleep(1.2)
+  try: await msg_pensando.delete()
+  except: pass
+
+  cb=d["bot"].pop(0)
+  vy=v(self.carta[0],self.carta[1]); vb=v(cb[0],cb[1])
+  
+  if vy>vb:
+   d["pj"]+=1
+   txt=f"✨ **GANASTE 1 PUNTO!** 😎\n📊 Marcador: **{d['pj']} - {d['pb']}**\n🤖 Bot tiró: {cb[0]} de {cb[1]}"
+  else:
+   d["pb"]+=1
+   txt=f"💔 **PERDISTE 1 PUNTO** 😔\n📊 Marcador: **{d['pj']} - {d['pb']}**\n🤖 Bot tiró: {cb[0]} de {cb[1]}"
+
+  # Si termina la partida
   if d["pj"]>=2 or d["pb"]>=2 or len(d["bot"])==0:
-   if d["pj"]>d["pb"]: add_coins(self.owner,250); add_win(self.owner,"bot"); txt+=f" GANASTE +250!"
+   if d["pj"]>d["pb"]:
+    add_coins(self.owner,250); add_win(self.owner,"bot")
+    txt=f"🏆 **¡GANASTE +250!** 🎉🎉\n💰 +250 coins\n📊 Final: {d['pj']}-{d['pb']}"
+    # desactivar todo
+    for child in self.view.children: child.disabled=True
+    try: await i.followup.edit_message(message_id=i.message.id, view=self.view)
+    except: pass
+   else:
+    txt=f"😭 **PERDISTE LA PARTIDA** 😔\n📊 Final: {d['pj']}-{d['pb']}\n¡Dale que la próxima ganas! 🍀"
+    for child in self.view.children: child.disabled=True
+    try: await i.followup.edit_message(message_id=i.message.id, view=self.view)
+    except: pass
    partidas.pop(self.owner,None)
   await i.followup.send(txt)
+
 class T(discord.ui.Button):
- def __init__(self,o): self.o=o; super().__init__(label="TRUCO",style=discord.ButtonStyle.danger,row=1)
- async def callback(self,i): await i.response.edit_message(view=self.view); await i.followup.send("TRUCO!",view=TrucoResp(self.o))
+ def __init__(self,o): self.o=o; super().__init__(label="TRUCO 🔥",style=discord.ButtonStyle.danger,row=1)
+ async def callback(self,i):
+  d=partidas.get(self.o)
+  if not d: return
+  # desactiva TRUCO y ENVIDO
+  for child in self.view.children:
+   if isinstance(child, (T,E)): child.disabled=True
+  await i.response.edit_message(view=self.view)
+  await i.followup.send("🔥 **¡TRUCO!**",view=TrucoResp(self.o))
+
 class E(discord.ui.Button):
- def __init__(self,o): self.o=o; super().__init__(label="ENVIDO",style=discord.ButtonStyle.success,row=1)
- async def callback(self,i): await i.response.edit_message(view=self.view); await i.followup.send("ENVIDO!",view=EnvidoResp(self.o))
+ def __init__(self,o): self.o=o; super().__init__(label="ENVIDO 💰",style=discord.ButtonStyle.success,row=1)
+ async def callback(self,i):
+  d=partidas.get(self.o)
+  if not d: return
+  for child in self.view.children:
+   if isinstance(child, (T,E)): child.disabled=True
+  await i.response.edit_message(view=self.view)
+  await i.followup.send("💰 **¡ENVIDO!**",view=EnvidoResp(self.o))
+
 class S(discord.ui.Button):
- def __init__(self,o): self.o=o; super().__init__(label="SALIR",style=discord.ButtonStyle.secondary,row=1)
- async def callback(self,i): partidas.pop(self.o,None); await i.response.edit_message(content="Saliste",view=None)
+ def __init__(self,o): self.o=o; super().__init__(label="SALIR 🚪",style=discord.ButtonStyle.secondary,row=1)
+ async def callback(self,i): partidas.pop(self.o,None); await i.response.edit_message(content="🚪 Saliste de la partida 😔",view=None)
+
 class ExpOpen(discord.ui.Button):
- def __init__(self,o): self.o=o; super().__init__(label="Expresiones",style=discord.ButtonStyle.secondary,row=1)
- async def callback(self,i): await i.response.send_message("Elegi:",view=ExpView(self.o),ephemeral=True)
+ def __init__(self,o): self.o=o; super().__init__(label="Expresiones 💬",style=discord.ButtonStyle.secondary,row=1)
+ async def callback(self,i): await i.response.send_message("💬 Elegi tu expresión:",view=ExpView(self.o),ephemeral=True)
+
 class V(discord.ui.View):
  def __init__(self,o,m): super().__init__(timeout=600); [self.add_item(C(c,o)) for c in m]; self.add_item(T(o)); self.add_item(E(o)); self.add_item(ExpOpen(o)); self.add_item(S(o))
+
 class CartaAmigo(discord.ui.Button):
  def __init__(self,carta,owner,pid): self.carta=carta; self.owner=owner; self.pid=pid; super().__init__(label=f"{carta[0]} de {carta[1]}",style=discord.ButtonStyle.primary)
  async def callback(self,i):
@@ -270,15 +313,16 @@ class CartaAmigo(discord.ui.Button):
   if len(d["jugadas"])==2:
    u1,u2=list(d["jugadas"].keys()); ganador=u1 if v(d["jugadas"][u1][0],d["jugadas"][u1][1])>v(d["jugadas"][u2][0],d["jugadas"][u2][1]) else u2
    add_coins(ganador,250); add_win(ganador,"amigo"); partidas.pop(self.pid,None)
-   await i.followup.send(f"Gana {d['nombres'][ganador]} +250!")
+   await i.followup.send(f"🏆 Gana {d['nombres'][ganador]} **+250** 🎉")
+
 class ViewAmigos(discord.ui.View):
  def __init__(self,pid,j1,j2,m1,m2):
   super().__init__(timeout=600); self.pid=pid
   for c in m1: self.add_item(CartaAmigo(c,j1,pid))
   for c in m2: self.add_item(CartaAmigo(c,j2,pid))
-  truco=discord.ui.Button(label="TRUCO",style=discord.ButtonStyle.danger,row=2); envido=discord.ui.Button(label="ENVIDO",style=discord.ButtonStyle.success,row=2)
-  async def truco_cb(inter): await inter.response.edit_message(view=self); await inter.followup.send("TRUCO!",view=TrucoRespAmigo(pid))
-  async def envido_cb(inter): await inter.response.edit_message(view=self); await inter.followup.send("ENVIDO!",view=EnvidoRespAmigo(pid))
+  truco=discord.ui.Button(label="TRUCO 🔥",style=discord.ButtonStyle.danger,row=2); envido=discord.ui.Button(label="ENVIDO 💰",style=discord.ButtonStyle.success,row=2)
+  async def truco_cb(inter): await inter.response.edit_message(view=self); await inter.followup.send("🔥 TRUCO!",view=TrucoRespAmigo(pid))
+  async def envido_cb(inter): await inter.response.edit_message(view=self); await inter.followup.send("💰 ENVIDO!",view=EnvidoRespAmigo(pid))
   truco.callback=truco_cb; envido.callback=envido_cb; self.add_item(truco); self.add_item(envido)
 
 @tree.command(name="jugar",description="Jugar vs bot o amigo")
@@ -290,7 +334,7 @@ async def jugar(i:discord.Interaction, oponente: discord.Member = None):
   partidas[pid]={"jugadas":{},"puntos":{i.user.id:0,oponente.id:0},"nombres":{i.user.id:i.user.display_name,oponente.id:oponente.display_name},"turno":i.user.id,"mano":{i.user.id:mj, oponente.id:mo},"envido_jugado":False}
   data=load_u(); equip=data.get(str(i.user.id),{}).get("equipado","default")
   tpath=tab_user(i.user.id)
-  emb=discord.Embed(title=f"TRUCO {i.user.display_name} vs {oponente.display_name}", description=f"Tablero: {equip.upper()}", color=0xe74c3c)
+  emb=discord.Embed(title=f"🃏 TRUCO {i.user.display_name} vs {oponente.display_name}", description=f"🎨 Tablero: **{equip.upper()}**", color=0xe74c3c)
   view=ViewAmigos(pid,i.user.id,oponente.id,mj,mo)
   if tpath and os.path.exists(tpath):
    await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
@@ -301,7 +345,7 @@ async def jugar(i:discord.Interaction, oponente: discord.Member = None):
  partidas[i.user.id]={"bot":mb,"mano_jugador":mj,"mano_bot":mb.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False}
  data=load_u(); equip=data.get(str(i.user.id),{}).get("equipado","default")
  tpath=tab_user(i.user.id)
- emb=discord.Embed(title="TRUCO", description=f"Tablero: {equip.upper()}", color=0x1e8449)
+ emb=discord.Embed(title="🃏 TRUCO vs BOT 🤖", description=f"🎨 Tablero: **{equip.upper()}**", color=0x1e8449)
  view=V(i.user.id,mj)
  if tpath and os.path.exists(tpath):
   await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
@@ -403,6 +447,6 @@ async def ayuda(i:discord.Interaction):
 @bot.event
 async def on_ready():
  await tree.sync()
- print("FINAL FIX TABLEROS EN PARTIDA")
+ print("FINAL CON EMOJIS Y BOT PENSANDO")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
