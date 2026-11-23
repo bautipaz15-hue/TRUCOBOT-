@@ -30,8 +30,9 @@ def calc_envido(mano):
  if max_e==0: max_e=max([envido_valor(c[0]) for c in mano])
  return max_e
 
-PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"gamer":1200}
-CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0}
+# FIX: gamer SACADO de venta, solo por codigo GAMER
+PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200}
+CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
 EXPRESIONES_TIENDA={"DEFAULT":{"precio":0,"txt":["HOLA","GG"]},"AMIGABLE":{"precio":150,"txt":["HOLA","GG"]},"KAOMOJI":{"precio":250,"txt":["WOW"]},"ARTE":{"precio":400,"txt":["ARTE"]}}
 
@@ -90,6 +91,50 @@ def av():
   if os.path.exists(x): return x
  return None
 
+# --- EQUIPAR DESPLEGABLE ---
+class TableroSelect(discord.ui.Select):
+ def __init__(self,owner):
+  self.owner=owner
+  data=load_u(); s=str(owner)
+  owned=data.get(s,{}).get("owned",["default"]) if s in data else ["default"]
+  if "default" not in owned: owned=["default"]+owned
+  nombres_lindos={"default":"Default","river":"River","boca":"Boca","san lorenzo":"San Lorenzo","racing":"Racing","springtrap":"Springtrap","creeper":"Creeper","minecraft":"Minecraft","diamante":"Diamante","oro":"Oro","gamer":"GAMER (Secreto)","espiritus":"ESPIRITUS (Secreto - SPRITE)","fortnite":"FORTNITE (Secreto - VICTORY ROYALE)"}
+  options=[]
+  for tab in owned:
+   # SOLO muestra los secretos SI los canjeaste (porque solo recorre owned)
+   label=nombres_lindos.get(tab, tab.upper())
+   emoji="🔒" if tab in ["gamer","espiritus","fortnite"] else "🃏"
+   options.append(discord.SelectOption(label=label, value=tab, emoji=emoji))
+  super().__init__(placeholder="📋 TABLEROS - Incluye SECRETOS si los canjeaste", min_values=1, max_values=1, options=options[:25])
+ async def callback(self,i):
+  if i.user.id!=self.owner: return
+  data=load_u(); s=str(i.user.id)
+  data[s]["equipado"]=self.values[0]; save_u(data)
+  t=tab_user(i.user.id)
+  if t and os.path.exists(t):
+   await i.response.send_message(f"✅ Equipaste TABLERO **{self.values[0].upper()}**", file=discord.File(t,filename="tablero.jpg"), ephemeral=True)
+  else:
+   await i.response.send_message(f"✅ Equipaste TABLERO **{self.values[0].upper()}**", ephemeral=True)
+
+class ExpresionSelect(discord.ui.Select):
+ def __init__(self,owner):
+  self.owner=owner
+  data=load_u(); s=str(owner)
+  owned=data.get(s,{}).get("owned_exp",["DEFAULT"]) if s in data else ["DEFAULT"]
+  options=[discord.SelectOption(label=exp, value=exp, emoji="💬") for exp in owned]
+  super().__init__(placeholder="💬 EXPRESIONES - Equipado unico", min_values=1, max_values=1, options=options[:25])
+ async def callback(self,i):
+  if i.user.id!=self.owner: return
+  data=load_u(); s=str(i.user.id)
+  data[s]["exp_equipado"]=self.values[0]; save_u(data)
+  await i.response.send_message(f"✅ Equipaste EXPRESION **{self.values[0]}**", ephemeral=True)
+
+class EquiparView(discord.ui.View):
+ def __init__(self,owner):
+  super().__init__(timeout=180)
+  self.add_item(TableroSelect(owner))
+  self.add_item(ExpresionSelect(owner))
+
 class BotonTienda(discord.ui.Button):
  def __init__(self,nombre,precio,owner):
   self.nombre=nombre; self.precio=precio; self.owner=owner
@@ -118,11 +163,10 @@ class BotonPoder(discord.ui.Button):
  async def callback(self,i):
   if i.user.id!=self.owner: return
   data=load_u(); s=str(i.user.id)
-  ensure_user(i.user.id); data=load_u()
   if data[s]["coins"]<self.precio: await i.response.send_message(f"Te faltan",ephemeral=True); return
   cant=1 if self.tipo=="x1" else 10
   data[s]["coins"]-=self.precio; data[s]["poderes"][self.nombre]+=cant; save_u(data)
-  await i.response.send_message(f"Compraste {self.nombre} {self.tipo}!",ephemeral=True)
+  await i.response.send_message(f"Compraste {self.nombre} {self.tipo}! Aparece en partida",ephemeral=True)
 
 class BotonExp(discord.ui.Button):
  def __init__(self,nombre,precio,owner):
@@ -141,7 +185,6 @@ class BotonExp(discord.ui.Button):
    data[s]["exp_equipado"]=self.nombre; save_u(data)
    await i.response.edit_message(embed=discord.Embed(title=f"Equipaste {self.nombre} ✅",color=0x2ecc71),view=TiendaView(self.owner,"expresiones"))
   else:
-   if data[s]["coins"]<self.precio: return
    data[s]["coins"]-=self.precio; data[s]["owned_exp"].append(self.nombre); save_u(data)
    await i.response.edit_message(embed=discord.Embed(title=f"Compraste {self.nombre} ✅",color=0xf1c40f),view=TiendaView(self.owner,"expresiones"))
 
@@ -250,7 +293,6 @@ async def jugar(i:discord.Interaction, oponente: discord.Member = None):
  partidas[i.user.id]={"bot":mb,"mano_jugador":mj,"mano_bot":mb.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False}
  await i.response.send_message(embed=discord.Embed(title="TRUCO",color=0x1e8449),view=V(i.user.id,mj))
 
-# --- NUEVA TIENDA SIN BUG ---
 @tree.command(name="tienda",description="Tienda de truco")
 @app_commands.choices(categoria=[
     Choice(name="TABLEROS", value="tableros"),
@@ -262,12 +304,12 @@ async def tienda(i:discord.Interaction, categoria: str):
  ensure_user(i.user.id)
  data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
  embed=discord.Embed(title=f"🛒 TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f)
- if categoria=="tableros": embed.description="Compra y equipa tableros"
- elif categoria=="poderes": embed.description="Compra poderes MAGO, OJO, ESCUDO, LADRON x1 y x10"
- else: embed.description="Expresiones - equipado unico, al equipar otra se va la anterior"
+ if categoria=="tableros": embed.description="Compra y equipa tableros (GAMER solo por codigo)"
+ elif categoria=="poderes": embed.description="Compra poderes x1 y x10 - aparecen en partida"
+ else: embed.description="Expresiones - equipado unico"
  await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
-@tree.command(name="ranking",description="Ranking ganadas vs bot y amigos")
+@tree.command(name="ranking",description="Ranking")
 async def ranking(i:discord.Interaction):
  await i.response.defer()
  data=load_u()
@@ -279,31 +321,75 @@ async def ranking(i:discord.Interaction):
   except: nombre=f"ID {uid}"
   total=info.get("wins_bot",0)+info.get("wins_amigo",0)
   desc+=f"**{idx}. {nombre}** - {total} wins (Bot {info.get('wins_bot',0)} | Amigo {info.get('wins_amigo',0)})\n"
- await i.followup.send(embed=discord.Embed(title="🏆 RANKING TRUCO",description=desc,color=0xf1c40f))
+ await i.followup.send(embed=discord.Embed(title="🏆 RANKING",description=desc,color=0xf1c40f))
+
+@tree.command(name="equipar",description="Equipar tus cosas con desplegable")
+async def equipar(i:discord.Interaction):
+ await i.response.defer(ephemeral=True)
+ ensure_user(i.user.id)
+ data=load_u(); s=str(i.user.id)
+ owned_tabs=data.get(s,{}).get("owned",["default"])
+ owned_exps=data.get(s,{}).get("owned_exp",["DEFAULT"])
+ poderes=data.get(s,{}).get("poderes",{})
+ emb=discord.Embed(title="🎒 EQUIPAR",description=f"TABLEROS: {len(owned_tabs)} (SECRETOS solo aparecen si los canjeaste)\nEXPRESIONES: {len(owned_exps)}\nPODERES: {poderes} (aparecen en partida, no se equipan)\n\nUsa los desplegables:",color=0x2ecc71)
+ await i.followup.send(embed=emb,view=EquiparView(i.user.id),ephemeral=True)
 
 @tree.command(name="perfil",description="Perfil")
 async def perfil(i:discord.Interaction):
  ensure_user(i.user.id); data=load_u(); s=str(i.user.id)
  await i.response.send_message(f"💰 {data[s]['coins']} 🏆 Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']}")
 
-@tree.command(name="codigos",description="Codigo")
+@tree.command(name="codigos",description="Canjear codigo - VICTORY ROYALE es el de fortnite")
 async def codigos(i:discord.Interaction, codigo: str):
+ await i.response.defer()
  ensure_user(i.user.id); data=load_u(); s=str(i.user.id)
+ code_upper=codigo.upper()
  found=None
  for k in CODIGOS:
-  if k.upper()==codigo.upper(): found=k; break
- if not found: await i.response.send_message("Invalido"); return
- if found in data[s]["codigos"]: await i.response.send_message("Ya canjeado"); return
+  if k.upper()==code_upper: found=k; break
+ if not found:
+  await i.followup.send("❌ Codigo invalido"); return
+ if found in data[s]["codigos"]:
+  await i.followup.send("❌ Ya canjeado"); return
+
+ if found=="SPRITE":
+  data[s]["owned"].append("espiritus") if "espiritus" not in data[s]["owned"] else None
+  data[s]["equipado"]="espiritus"; data[s]["codigos"].append(found); save_u(data)
+  t=buscar_tablero("espiritus")
+  emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de ESPIRITUS!**",color=0x9b59b6)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="esp.jpg"))
+  else: await i.followup.send(embed=emb)
+  return
+ if found=="VICTORY ROYALE":
+  data[s]["owned"].append("fortnite") if "fortnite" not in data[s]["owned"] else None
+  data[s]["equipado"]="fortnite"; data[s]["codigos"].append(found); save_u(data)
+  t=buscar_tablero("fortnite")
+  emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de FORTNITE!**\nUsa /equipar para verlo, es con VICTORY ROYALE",color=0x9b59b6)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="fortnite.jpg"))
+  else: await i.followup.send(embed=emb)
+  return
+ if found=="GAMER":
+  data[s]["owned"].append("gamer") if "gamer" not in data[s]["owned"] else None
+  data[s]["equipado"]="gamer"; data[s]["codigos"].append(found); save_u(data)
+  t=buscar_tablero("gamer")
+  emb=discord.Embed(title="✅ CANJEADO!",description="🎮 **Conseguiste el tablero SECRETO GAMER!**",color=0x00ff00)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="gamer.jpg"))
+  else: await i.followup.send(embed=emb)
+  return
+ if found in ["TRUCO!","1_ESPADA"]:
+  data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1; data[s]["codigos"].append(found); save_u(data)
+  await i.followup.send(f"✨ **Conseguiste 1 poder MAGO!** Total: {data[s]['poderes']['MAGO']}"); return
+
  data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data)
- await i.response.send_message(f"+{CODIGOS[found]}")
+ await i.followup.send(f"💰 **+{CODIGOS[found]} coins!** Total: {data[s]['coins']}")
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
- await i.response.send_message(embed=discord.Embed(title="AYUDA",description="/tienda tableros /tienda poderes /tienda expresiones\n/jugar /ranking /perfil",color=0x9b59b6))
+ await i.response.send_message(embed=discord.Embed(title="AYUDA",description="/tienda tableros/poderes/expresiones\n/equipar desplegable TABLEROS+EXPRESIONES (secretos solo si canjeados)\n/codigos: SPRITE, VICTORY ROYALE=fortnite, GAMER=gamer\nGAMER no se vende\n/ranking",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
  await tree.sync()
- print("TIENDA FIX 3 OPCIONES + RANKING")
+ print("FIX COMPLETO: gamer no venta + VICTORY ROYALE + equipar secretos solo si canjeado")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
