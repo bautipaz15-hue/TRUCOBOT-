@@ -356,45 +356,45 @@ async def perfil(i:discord.Interaction):
 
 @tree.command(name="codigos",description="Canjear un codigo secreto")
 async def codigos(i:discord.Interaction, codigo: str):
- await i.response.defer()
+ await i.response.defer(ephemeral=True)
  ensure_user(i.user.id); data=load_u(); s=str(i.user.id)
  code_upper=codigo.strip().upper()
  found=None
  for k in CODIGOS:
   if k.upper()==code_upper: found=k; break
  if not found:
-  await i.followup.send("❌ Codigo invalido"); return
+  await i.followup.send("❌ Codigo invalido", ephemeral=True); return
  if found in data[s]["codigos"]:
-  await i.followup.send("❌ Ya canjeado"); return
+  await i.followup.send("❌ Ya canjeado", ephemeral=True); return
  if found=="SPRITE":
   if "espiritus" not in data[s]["owned"]: data[s]["owned"].append("espiritus")
   data[s]["equipado"]="espiritus"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("espiritus")
   emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de ESPIRITUS!**",color=0x9b59b6)
-  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="esp.jpg"))
-  else: await i.followup.send(embed=emb)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="esp.jpg"), ephemeral=True)
+  else: await i.followup.send(embed=emb, ephemeral=True)
   return
  if found=="VICTORY ROYALE":
   if "fortnite" not in data[s]["owned"]: data[s]["owned"].append("fortnite")
   data[s]["equipado"]="fortnite"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("fortnite")
   emb=discord.Embed(title="✅ CANJEADO!",description="🎉 **Conseguiste el tablero SECRETO de FORTNITE!**",color=0x9b59b6)
-  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="fort.jpg"))
-  else: await i.followup.send(embed=emb)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="fort.jpg"), ephemeral=True)
+  else: await i.followup.send(embed=emb, ephemeral=True)
   return
  if found=="GAMER":
   if "gamer" not in data[s]["owned"]: data[s]["owned"].append("gamer")
   data[s]["equipado"]="gamer"; data[s]["codigos"].append(found); save_u(data)
   t=buscar_tablero("gamer")
   emb=discord.Embed(title="✅ CANJEADO!",description="🎮 **Conseguiste el tablero SECRETO GAMER!**",color=0x00ff00)
-  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="gamer.jpg"))
-  else: await i.followup.send(embed=emb)
+  if t and os.path.exists(t): await i.followup.send(embed=emb,file=discord.File(t,filename="gamer.jpg"), ephemeral=True)
+  else: await i.followup.send(embed=emb, ephemeral=True)
   return
  if found in ["TRUCO!","1_ESPADA"]:
   data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1; data[s]["codigos"].append(found); save_u(data)
-  await i.followup.send(f"✨ **Conseguiste 1 poder MAGO!** Total: {data[s]['poderes']['MAGO']}"); return
+  await i.followup.send(f"✨ **Conseguiste 1 poder MAGO!** Total: {data[s]['poderes']['MAGO']}", ephemeral=True); return
  data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data)
- await i.followup.send(f"💰 **+{CODIGOS[found]} coins!** Total: {data[s]['coins']}")
+ await i.followup.send(f"💰 **+{CODIGOS[found]} coins!** Total: {data[s]['coins']}", ephemeral=True)
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
