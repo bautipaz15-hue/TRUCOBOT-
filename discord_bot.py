@@ -25,8 +25,7 @@ def foto(n,p):
   if str(n) in f and p[0] in f.lower(): return os.path.join("Cartas_reales",f)
  return None
 
-def tab(): 
- return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
+def tab(): return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
 def av():
  for x in ["bot_rojo.png","tableros/bot_rojo.png","bot_rojo.jpg"]:
   if os.path.exists(x): return x
@@ -43,7 +42,7 @@ class C(discord.ui.Button):
   self.disabled=True
   cb=d["bot"].pop(0)
   vy=v(self.carta[0],self.carta[1]); vb=v(cb[0],cb[1])
-  if vy>vb: txt=f"🏆 GANASTE con {self.carta[0]} de {self.carta[1]}"; d["pj"]+=1
+  if vy>vb: txt=f"🏆 GANASTE con {self.carta[0]}"; d["pj"]+=1
   elif vb>vy: txt=f"😢 PERDISTE, gano bot con {cb[0]} de {cb[1]}"; d["pb"]+=1
   else: txt="🤝 Empate"
   fs=[]
@@ -69,18 +68,38 @@ class E(discord.ui.Button):
   if i.user.id!=self.o: return
   await i.response.send_message(f"{i.user.mention} canto ENVIDO!")
 class S(discord.ui.Button):
- def __init__(self,o): self.o=o; super().__init__(label="SALIR",style=discord.ButtonStyle.secondary,row=1)
+ def __init__(self,o): self.o=o; super().__init__(label="SALIR",style=discord.ButtonStyle.secondary,row=2)
  async def callback(self,i):
   if i.user.id!=self.o: return
   partidas.pop(self.o,None)
   for c in self.view.children: c.disabled=True
   await i.response.edit_message(content="Saliste",view=self.view)
 
+class Exp(discord.ui.Button):
+ def __init__(self,txt,lab,ow): self.txt=txt; self.ow=ow; super().__init__(label=lab,style=discord.ButtonStyle.secondary)
+ async def callback(self,i):
+  if i.user.id!=self.ow: return
+  await i.response.send_message(f"**{i.user.display_name} dice:** {self.txt}")
+
+class ExpView(discord.ui.View):
+ def __init__(self,ow):
+  super().__init__(timeout=60)
+  self.add_item(Exp("¡Apurate que me duermo!","Me duermo",ow))
+  self.add_item(Exp("¿Buscando como se juega?","Google?",ow))
+  self.add_item(Exp("XD","XD",ow))
+  self.add_item(Exp("JAJA","JAJA",ow))
+
+class ExpBtn(discord.ui.Button):
+ def __init__(self,o): self.o=o; super().__init__(label="Expresiones",style=discord.ButtonStyle.secondary,row=2)
+ async def callback(self,i):
+  if i.user.id!=self.o: return
+  await i.response.send_message("Elegí:",view=ExpView(self.o),ephemeral=True)
+
 class V(discord.ui.View):
  def __init__(self,o,m):
   super().__init__(timeout=600)
   for c in m: self.add_item(C(c,o))
-  self.add_item(T(o)); self.add_item(E(o)); self.add_item(S(o))
+  self.add_item(T(o)); self.add_item(E(o)); self.add_item(ExpBtn(o)); self.add_item(S(o))
 
 @tree.command(name="jugar",description="Jugar")
 async def jugar(i:discord.Interaction):
@@ -96,7 +115,7 @@ async def jugar(i:discord.Interaction):
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i):
- e=discord.Embed(title="AYUDA",description="/jugar -> vs bot con tablero default y bot_rojo\nBotones: 3 cartas + TRUCO + ENVIDO + SALIR\nAl tirar te dice quien gana y muestra fotos\nAl terminar se bloquea todo",color=0x9b59b6)
+ e=discord.Embed(title="AYUDA",description="/jugar = tablero default + bot_rojo\nCartas + TRUCO + ENVIDO + Expresiones + SALIR\nAl perder/ganar se bloquea TODO",color=0x9b59b6)
  await i.response.send_message(embed=e)
 
 @bot.event
