@@ -33,7 +33,27 @@ def calc_envido(mano):
 PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200}
 CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
-EXPRESIONES_TIENDA={"DEFAULT":{"precio":0,"txt":["HOLA","GG"]},"AMIGABLE":{"precio":150,"txt":["HOLA","GG"]},"KAOMOJI":{"precio":250,"txt":["WOW"]},"ARTE":{"precio":400,"txt":["ARTE"]}}
+EXPRESIONES_TIENDA={
+ "DEFAULT":{"precio":0,"txt":["HOLA 👋","GG 😎","¿ESTAS BUSCANDO EN GOOGLE COMO SE JUEGA? 🤓","TRUCO! 🔥"]},
+ "AMIGABLE":{"precio":150,"txt":["HOLA","GG"]},
+ "KAOMOJI":{"precio":250,"txt":["WOW"]},
+ "ARTE":{"precio":400,"txt":[
+"""───▄▀▀▀▄▄▄▄▄▄▄▀▀▀▄───
+───█▒▒░░░░░░░░░▒▒█───
+────█░░█░░░░░█░░█────
+─▄▄──█░░░▀█▀░░░█──▄▄─
+█░░█─▀▄░░░░░░░▄▀─█░░█""",
+"""░▄▀▄▀▀▀▀▄▀▄░░░░░░░░░
+░█░░░░░░░░▀▄░░░░░░▄░
+█░░▀░░▀░░░░░▀▄▄░░█░█
+█░▄░█▀░▄░░░░░░░▀▀░░█
+█░░▀▀▀▀░░░░░░░░░░░░█
+█░░░░░░░░░░░░░░░░░░█
+█░░░░░░░░░░░░░░░░░░█
+░█░░▄▄░░▄▄▄▄░░▄▄░░█░
+░█░▄▀█░▄▀░░█░▄▀█░▄▀░
+░░▀░░░▀░░░░░▀░░░▀░░░"""]}
+}
 
 FILE="usuarios.json"
 def load_u():
@@ -115,13 +135,16 @@ class ExpresionSelect(discord.ui.Select):
   self.owner=owner
   data=load_u(); s=str(owner)
   owned=data.get(s,{}).get("owned_exp",["DEFAULT"]) if s in data else ["DEFAULT"]
-  options=[discord.SelectOption(label=exp, value=exp, emoji="💬") for exp in owned]
+  options=[]
+  for exp in owned:
+   lbl = exp[:20] if "\n" not in exp else "ARTE 🎨"
+   options.append(discord.SelectOption(label=lbl, value=exp, emoji="💬"))
   super().__init__(placeholder="💬 EXPRESIONES", min_values=1, max_values=1, options=options[:25])
  async def callback(self,i):
   if i.user.id!=self.owner: return
   data=load_u(); s=str(i.user.id)
   data[s]["exp_equipado"]=self.values[0]; save_u(data)
-  await i.response.send_message(f"✅ Equipaste EXPRESION **{self.values[0]}**", ephemeral=True)
+  await i.response.send_message(f"✅ Equipaste EXPRESION", ephemeral=True)
 
 class EquiparView(discord.ui.View):
  def __init__(self,owner):
@@ -209,14 +232,29 @@ class EnvidoRespAmigo(discord.ui.View):
  async def quiero(self,i,b): d=partidas.get(self.pid); d["puntos"][list(d["mano"].keys())[0]]+=2; await i.response.send_message("+2!"); self.stop()
  @discord.ui.button(label="NO QUIERO",style=discord.ButtonStyle.danger)
  async def no(self,i,b): d=partidas.get(self.pid); ganador=[x for x in d["puntos"].keys() if x!=i.user.id][0]; d["puntos"][ganador]+=1; await i.response.send_message("+1"); self.stop()
+
 class ExpBtn(discord.ui.Button):
- def __init__(self,txt,label,o): self.txt=txt; self.o=o; super().__init__(label=label,style=discord.ButtonStyle.secondary)
- async def callback(self,i): await i.response.send_message(f"{i.user.display_name}: {self.txt}")
+ def __init__(self,txt,label,o): 
+  self.txt=txt; self.o=o
+  super().__init__(label=label,style=discord.ButtonStyle.secondary)
+ async def callback(self,i): 
+  if "\n" in self.txt:
+   await i.response.send_message(f"**{i.user.display_name}:**\n```\n{self.txt}\n```")
+  else:
+   await i.response.send_message(f"{i.user.display_name}: {self.txt}")
+
 class ExpView(discord.ui.View):
  def __init__(self,o):
   super().__init__(timeout=60)
-  data=load_u(); s=str(o); pack=data.get(s,{}).get("exp_equipado","DEFAULT"); txts=EXPRESIONES_TIENDA.get(pack,EXPRESIONES_TIENDA["DEFAULT"])["txt"]
-  for t in txts[:4]: self.add_item(ExpBtn(t,t[:20],o))
+  data=load_u(); s=str(o)
+  pack=data.get(s,{}).get("exp_equipado","DEFAULT")
+  txts=EXPRESIONES_TIENDA.get(pack,EXPRESIONES_TIENDA["DEFAULT"])["txt"]
+  for idx, t in enumerate(txts[:5]):
+   if "\n" in t:
+    label = f"ARTE {idx+1} 🎨"
+   else:
+    label = t[:20]
+   self.add_item(ExpBtn(t,label,o))
 
 # --- JUGABILIDAD REAL FIXEADA ---
 class C(discord.ui.Button):
@@ -266,7 +304,6 @@ class T(discord.ui.Button):
   for child in self.view.children:
    if isinstance(child, (T,E)): child.disabled=True
   await i.response.edit_message(view=self.view)
-  # BOT DECIDE DE VERDAD
   if random.random() < 0.65:
    d["truco_nivel"]=2
    await i.followup.send("🤖 Bot: **¡QUIERO TRUCO!** 😎 Vale 2")
@@ -456,6 +493,6 @@ async def ayuda(i:discord.Interaction):
 @bot.event
 async def on_ready():
  await tree.sync()
- print("FIX REAL - YA NO GANA SIEMPRE")
+ print("FIX FINAL ARTE + GOOGLE")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
