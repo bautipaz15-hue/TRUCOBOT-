@@ -6,8 +6,12 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok"
-Thread(target=lambda: app.run(host='0.0.0.0',port=int(os.environ.get("PORT",10000))),daemon=True).start()
+def h(): return "ok BOT TRUCO ON - HISTORIA"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
+Thread(target=run_flask).start()
 
 intents=discord.Intents.default()
 intents.message_content=True
@@ -256,7 +260,6 @@ class ExpView(discord.ui.View):
     label = t[:20]
    self.add_item(ExpBtn(t,label,o))
 
-# --- JUGABILIDAD REAL FIXEADA ---
 class C(discord.ui.Button):
  def __init__(self,carta,owner): self.carta=carta; self.owner=owner; super().__init__(label=f"{carta[0]} de {carta[1]} 🃏",style=discord.ButtonStyle.primary,row=0)
  async def callback(self,i):
@@ -493,6 +496,6 @@ async def ayuda(i:discord.Interaction):
 @bot.event
 async def on_ready():
  await tree.sync()
- print("FIX FINAL ARTE + GOOGLE")
+ print("FIX FINAL ARTE + GOOGLE - RENDER ON")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
