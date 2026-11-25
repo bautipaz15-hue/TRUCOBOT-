@@ -1,4 +1,4 @@
- import discord, random, os, json, asyncio, time, requests
+import discord, random, os, json, asyncio, time, requests
 from discord import app_commands
 from discord.app_commands import Choice
 from flask import Flask
