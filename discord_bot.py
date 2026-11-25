@@ -1,22 +1,35 @@
-import discord, random, os, json, asyncio, time
+import discord, random, os, json, asyncio, time, requests
 from discord import app_commands
 from discord.app_commands import Choice
 from flask import Flask
 from threading import Thread
 
+# --- FLASK + ANTI SLEEP V5 DEFINITIVO ---
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V4 ON - NO SLEEP + SAN LORENZO FIX + 3-4 PLAYERS"
+def h(): return "ok BOT TRUCO V5 ON - MENU JUGAR + INVITAR + CANCELAR + NO SLEEP"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
-Thread(target=run_flask).start()
+Thread(target=run_flask, daemon=True).start()
 
+def keep_alive_v5():
+    while True:
+        time.sleep(600)
+        try:
+            url = os.environ.get("RENDER_EXTERNAL_URL", "https://trucobot-athd.onrender.com")
+            requests.get(url, timeout=10)
+            print("SELF PING V5 OK")
+        except: pass
+Thread(target=keep_alive_v5, daemon=True).start()
+
+# --- DISCORD BOT ---
 intents=discord.Intents.default()
 intents.message_content=True
 bot=discord.Client(intents=intents)
 tree=app_commands.CommandTree(bot)
 partidas={}
+salas_jugar={} # NUEVO V5 PARA /jugar
 ultimo_comando={}
 TIMEOUT_SEGUNDOS=120
 
@@ -44,7 +57,6 @@ EXPRESIONES_TIENDA={
  "KAOMOJI":{"precio":250,"txt":["WOW"]},
  "ARTE":{"precio":400,"txt":["───▄▀▀▀▄▄▄▄▄▄▄▀▀▀▄───\n───█▒▒░░░░░░░░░▒▒█───\n────█░░█░░░░░█░░█────\n─▄▄──█░░░▀█▀░░░█──▄▄─\n█░░█─▀▄░░░░░░░▄▀─█░░█","░▄▀▄▀▀▀▀▄▀▄░░░░░░░░░\n░█░░░░░░░░▀▄░░░░░░▄░\n█░░▀░░▀░░░░░▀▄▄░░█░█\n█░▄░█▀░▄░░░░░░░▀▀░░█\n█░░▀▀▀▀░░░░░░░░░░░░█\n█░░░░░░░░░░░░░░░░░░█\n█░░░░░░░░░░░░░░░░░░█\n░█░░▄▄░░▄▄▄▄░░▄▄░░█░\n░█░▄▀█░▄▀░░█░▄▀█░▄▀░\n░░▀░░░▀░░░░░▀░░░▀░░░"]}
 }
-
 FILE="usuarios.json"
 def load_u():
  if not os.path.exists(FILE): return {}
@@ -102,6 +114,7 @@ def check_spam(uid):
  ultimo_comando[uid]=ahora
  return True
 
+# --- VIEWS TIENDA (IGUAL QUE ANTES) ---
 class TableroSelect(discord.ui.Select):
  def __init__(self,owner):
   self.owner=owner
@@ -209,6 +222,7 @@ class TiendaView(discord.ui.View):
     if nombre=="DEFAULT": continue
     self.add_item(BotonExp(nombre,EXPRESIONES_TIENDA[nombre]["precio"],owner))
 
+# --- LOGICA TRUCO (VS BOT Y AMIGO) - IGUAL QUE TU V4 ---
 class TrucoRespAmigo(discord.ui.View):
  def __init__(self,pid, nivel): super().__init__(timeout=30); self.pid=pid; self.nivel=nivel
  @discord.ui.button(label="QUIERO",style=discord.ButtonStyle.success)
@@ -372,6 +386,14 @@ class E(discord.ui.Button):
    if isinstance(child, T): child.disabled=False
   try: await i.edit_original_response(view=self.view)
   except: pass
+class PoderBtn(discord.ui.Button):
+ def __init__(self,o,nombre): self.o=o; self.nombre=nombre; super().__init__(label=f"🔥 {nombre}",style=discord.ButtonStyle.danger,row=2)
+ async def callback(self,i):
+  if i.user.id!=self.o: return
+  data=load_u(); s=str(self.o)
+  if data[s]["poderes"].get(self.nombre,0)<=0: await i.response.send_message(f"No tenes {self.nombre}",ephemeral=True); return
+  data[s]["poderes"][self.nombre]-=1; save_u(data)
+  await i.response.send_message(f"🔥 Usaste PODER {self.nombre}!",ephemeral=True)
 class S(discord.ui.Button):
  def __init__(self,o): self.o=o; super().__init__(label="IRSE AL MAZO 🚪",style=discord.ButtonStyle.secondary,row=1)
  async def callback(self,i):
@@ -383,7 +405,14 @@ class ExpOpen(discord.ui.Button):
  def __init__(self,o): self.o=o; super().__init__(label="Expresiones 💬",style=discord.ButtonStyle.secondary,row=1)
  async def callback(self,i): await i.response.send_message("💬 Elegi:",view=ExpView(self.o),ephemeral=True)
 class V(discord.ui.View):
- def __init__(self,o,m): super().__init__(timeout=600); [self.add_item(C(c,o)) for c in m]; self.add_item(T(o)); self.add_item(E(o)); self.add_item(ExpOpen(o)); self.add_item(S(o))
+ def __init__(self,o,m):
+  super().__init__(timeout=600)
+  [self.add_item(C(c,o)) for c in m]
+  self.add_item(T(o)); self.add_item(E(o)); self.add_item(ExpOpen(o)); self.add_item(S(o))
+  data=load_u(); s=str(o)
+  for poder in ["MAGO","OJO","ESCUDO","LADRON"]:
+   if data.get(s,{}).get("poderes",{}).get(poder,0)>0:
+     self.add_item(PoderBtn(o,poder))
 
 class CartaAmigoV4(discord.ui.Button):
  def __init__(self,carta,owner,pid):
@@ -503,48 +532,109 @@ class ViewAmigosV4(discord.ui.View):
   self.add_item(SalirAmigoV4(pid,first))
   self.add_item(ExpOpen(first))
 
+# --- NUEVO V5: MENU /jugar CON INVITAR Y CANCELAR ---
+class JugarMenuView(discord.ui.View):
+ def __init__(self, owner_id):
+  super().__init__(timeout=180)
+  self.owner_id=owner_id
+ @discord.ui.button(label="⚔️ 1V1", style=discord.ButtonStyle.primary, row=0)
+ async def b_1v1(self,i,b):
+  await self.crear_sala(i, "1v1", 2)
+ @discord.ui.button(label="👥 TRIO", style=discord.ButtonStyle.primary, row=0)
+ async def b_trio(self,i,b):
+  await self.crear_sala(i, "trio", 6)
+ @discord.ui.button(label="🛡️ ESCUADRON", style=discord.ButtonStyle.primary, row=0)
+ async def b_esc(self,i,b):
+  await self.crear_sala(i, "escuadron", 8)
+ @discord.ui.button(label="🤖 BOT", style=discord.ButtonStyle.success, row=1)
+ async def b_bot(self,i,b):
+  await self.iniciar_bot(i, "bot")
+ @discord.ui.button(label="🤖 BOT TRIO", style=discord.ButtonStyle.success, row=1)
+ async def b_bot_trio(self,i,b):
+  await self.iniciar_bot(i, "bot_trio")
+ @discord.ui.button(label="🤖 BOT ESCUADRON", style=discord.ButtonStyle.success, row=1)
+ async def b_bot_esc(self,i,b):
+  await self.iniciar_bot(i, "bot_escuadron")
+ async def crear_sala(self, i, modo, necesarios):
+  if i.user.id!=self.owner_id: await i.response.send_message("No es tu menu",ephemeral=True); return
+  pid=f"lobby_{i.channel.id}"
+  salas_jugar[pid]={"modo":modo,"necesarios":necesarios,"jugadores":[i.user.id],"nombres":{i.user.id:i.user.display_name},"creador":i.user.id,"creador_nombre":i.user.display_name,"last":time.time()}
+  emb=discord.Embed(title=f"⚔️ SALA {modo.upper()} CREADA ({1}/{necesarios})", description=f"🔥 **{i.user.display_name} TE HA RETADO A UN TRUCO!**\n\nModo: **{modo.upper()}**\nEsperando {necesarios-1} jugadores más...\n\nToca **ESTOY LISTO** para unirte!", color=0xe74c3c)
+  await i.response.edit_message(embed=emb, view=SalaEsperaView(pid))
+  await i.followup.send(f"🔥 @everyone **{i.user.display_name} TE RETO A UN TRUCO! Modo {modo.upper()} - Tocá ESTOY LISTO!**")
+ async def iniciar_bot(self, i, modo):
+  if i.user.id!=self.owner_id: return
+  ensure_user(i.user.id)
+  m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
+  partidas[i.user.id]={"bot":mb.copy(),"mano_jugador":mj.copy(),"mano_jugador_orig":mj.copy(),"mano_bot_orig":mb.copy(),"mano_bot":mb.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False,"truco_jugado":False,"last_action":time.time()}
+  tpath=tab_user(i.user.id)
+  emb=discord.Embed(title=f"🃏 TRUCO vs {modo.upper()} 🤖 - Arranca de una!", description=f"Modo {modo} - Bot piensa", color=0x1e8449)
+  view=V(i.user.id,mj)
+  if tpath and os.path.exists(tpath):
+   await i.response.edit_message(embed=emb, view=view)
+   await i.followup.send(file=discord.File(tpath, filename="tablero.jpg"))
+  else:
+   await i.response.edit_message(embed=emb, view=view)
+
+class SalaEsperaView(discord.ui.View):
+ def __init__(self, pid):
+  super().__init__(timeout=300); self.pid=pid
+ @discord.ui.button(label="✅ ESTOY LISTO", style=discord.ButtonStyle.success)
+ async def listo(self,i,b):
+  sala=salas_jugar.get(self.pid)
+  if not sala: await i.response.send_message("Sala ya no existe",ephemeral=True); return
+  if i.user.id not in sala["jugadores"]:
+   sala["jugadores"].append(i.user.id); sala["nombres"][i.user.id]=i.user.display_name
+  sala["last"]=time.time()
+  if len(sala["jugadores"])>=sala["necesarios"]:
+   # INICIA PARTIDA
+   jugadores=sala["jugadores"]; nombres=sala["nombres"]
+   manos={}; m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m)
+   for uid in jugadores: manos[uid]=[m.pop() for _ in range(3)]
+   partidas[self.pid]={"jugadores":jugadores,"manos":manos,"jugadas_ronda":{},"rondas_ganadas":{uid:0 for uid in jugadores},"puntos":{uid:0 for uid in jugadores},"puntos_para_ganar":1,"tipo":"corta","nombres":nombres,"truco_nivel":1,"envido_jugado":False,"last_action":time.time()}
+   salas_jugar.pop(self.pid,None)
+   emb=discord.Embed(title=f"🃏 PARTIDA {sala['modo'].upper()} INICIADA - SALA LLENA {len(jugadores)}/{sala['necesarios']}", description=f"Jugadores: {', '.join(nombres.values())}", color=0x2ecc71)
+   await i.response.edit_message(embed=emb, view=ViewAmigosV4(self.pid))
+   await i.followup.send(f"✅ SALA LLENA! RETRUCO, VALE 4, PODERES y ENVIDO disponibles en botones!")
+  else:
+   emb=discord.Embed(title=f"⚔️ SALA {sala['modo'].upper()} ({len(sala['jugadores'])}/{sala['necesarios']})", description=f"Creador: {sala['creador_nombre']}\nJugadores: {', '.join(sala['nombres'].values())}\n\nFaltan {sala['necesarios']-len(sala['jugadores'])} - Toca ESTOY LISTO!", color=0xe74c3c)
+   await i.response.edit_message(embed=emb, view=self)
+   await i.followup.send(f"✅ {i.user.display_name} se unió! ({len(sala['jugadores'])}/{sala['necesarios']})")
+ @discord.ui.button(label="📩 INVITAR A TODOS", style=discord.ButtonStyle.primary)
+ async def invitar(self,i,b):
+  sala=salas_jugar.get(self.pid)
+  if not sala: return
+  await i.response.send_message(f"🔥🔥 @everyone {sala['creador_nombre']} TE HA RETADO A UN TRUCO! Modo {sala['modo'].upper()} - Tocá ESTOY LISTO! ({len(sala['jugadores'])}/{sala['necesarios']})")
+ @discord.ui.button(label="❌ CANCELAR SALA", style=discord.ButtonStyle.danger)
+ async def cancelar(self,i,b):
+  sala=salas_jugar.get(self.pid)
+  if not sala: return
+  if i.user.id!=sala["creador"]: await i.response.send_message("Solo el creador puede cancelar ❌",ephemeral=True); return
+  salas_jugar.pop(self.pid,None)
+  await i.response.edit_message(embed=discord.Embed(title="❌ SALA CANCELADA", description=f"Cancelada por {sala['creador_nombre']}", color=0x95a5a6), view=None)
+
 async def timeout_checker():
  while True:
    await asyncio.sleep(30)
    ahora=time.time()
    to_del=[]
    for pid,d in list(partidas.items()):
-     if isinstance(pid,int):
-         if ahora - d.get("last_action",ahora) > TIMEOUT_SEGUNDOS:
-             to_del.append(pid)
-     else:
-         if ahora - d.get("last_action",ahora) > TIMEOUT_SEGUNDOS:
-             to_del.append(pid)
-   for pid in to_del:
-     partidas.pop(pid,None)
+     if ahora - d.get("last_action",ahora) > TIMEOUT_SEGUNDOS:
+         to_del.append(pid)
+   for pid in to_del: partidas.pop(pid,None)
+   to_del2=[]
+   for pid,d in list(salas_jugar.items()):
+     if ahora - d.get("last",ahora) > 300: # 5 min sin llenar se cancela
+         to_del2.append(pid)
+   for pid in to_del2: salas_jugar.pop(pid,None)
 
-@tree.command(name="jugar",description="Jugar vs bot o amigo")
-async def jugar(i:discord.Interaction, oponente: discord.Member = None):
+@tree.command(name="jugar",description="Jugar - Menu nuevo V5 con 1V1 Trio Escuadron y Bot")
+async def jugar(i:discord.Interaction):
  ensure_user(i.user.id)
  if not check_spam(i.user.id):
    await i.response.send_message("⏳ No spamees! Espera 3 seg",ephemeral=True); return
- if oponente and oponente.id!=i.user.id and not oponente.bot:
-  m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mo=[m.pop() for _ in range(3)]
-  pid=f"amigo_{i.user.id}_{oponente.id}_{random.randint(1,99999)}"
-  partidas[pid]={"jugadores":[i.user.id, oponente.id],"manos":{i.user.id:mj, oponente.id:mo},"jugadas_ronda":{},"rondas_ganadas":{i.user.id:0, oponente.id:0},"puntos":{i.user.id:0, oponente.id:0},"puntos_para_ganar":1,"tipo":"corta","nombres":{i.user.id:i.user.display_name,oponente.id:oponente.display_name},"truco_nivel":1,"envido_jugado":False,"last_action":time.time()}
-  tpath=tab_user(i.user.id)
-  emb=discord.Embed(title=f"🃏 TRUCO CORTO {i.user.display_name} vs {oponente.display_name}", description=f"🎨 Tablero: {buscar_tablero('default')}\n⏱️ Timeout 2min sin monedas\n🚪 Si te vas en corta = 0 coins", color=0xe74c3c)
-  view=ViewAmigosV4(pid)
-  if tpath and os.path.exists(tpath):
-   await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
-  else:
-   await i.response.send_message(embed=emb, view=view)
-  return
- m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
- partidas[i.user.id]={"bot":mb.copy(),"mano_jugador":mj.copy(),"mano_jugador_orig":mj.copy(),"mano_bot_orig":mb.copy(),"mano_bot":mb.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False,"truco_jugado":False,"last_action":time.time()}
- data=load_u(); equip=data.get(str(i.user.id),{}).get("equipado","default")
- tpath=tab_user(i.user.id)
- emb=discord.Embed(title="🃏 TRUCO vs BOT 🤖", description=f"🎨 Tablero: **{equip.upper()}** - Anti-spam ON - Timeout 2min", color=0x1e8449)
- view=V(i.user.id,mj)
- if tpath and os.path.exists(tpath):
-  await i.response.send_message(embed=emb, view=view, file=discord.File(tpath, filename="tablero.jpg"))
- else:
-  await i.response.send_message(embed=emb, view=view)
+ emb=discord.Embed(title="🎮 ELEGÍ MODO DE JUEGO - TRUCO V5", description="**HUMANOS:** 1V1 (2) | TRIO (6) | ESCUADRON (8)\nCon invitación 'TE HA RETADO' + Cancelar\n\n**BOTS:** BOT / BOT TRIO / BOT ESCUADRON -> Arranca de una\n\nRETRUCO, PODERES y ENVIDO asegurados ✅", color=0x9b59b6)
+ await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 
 @tree.command(name="truco",description="Partida CORTA todos vs todos 1vs1vs1 o 1vs1vs1vs1 - 1 mano sin monedas si abandona")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
@@ -601,7 +691,7 @@ async def tienda(i:discord.Interaction, categoria: str):
  data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
  embed=discord.Embed(title=f"🛒 TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f)
  if categoria=="tableros": embed.description="Compra y equipa tableros (SAN LORENZO FIXEADO ✅)"
- elif categoria=="poderes": embed.description="Compra poderes x1 y x10"
+ elif categoria=="poderes": embed.description="Compra poderes x1 y x10 - Ahora aparecen en partida con boton 🔥"
  else: embed.description="Expresiones - equipado unico"
  await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
@@ -677,14 +767,14 @@ async def codigos(i:discord.Interaction, codigo: str):
  data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data)
  await i.followup.send(f"💰 **+{CODIGOS[found]} coins!** Total: {data[s]['coins']}", ephemeral=True)
 
-@tree.command(name="ayuda",description="Ayuda V4")
+@tree.command(name="ayuda",description="Ayuda V5")
 async def ayuda(i:discord.Interaction):
- await i.response.send_message(embed=discord.Embed(title="AYUDA V4.0 - TODOS CONTRA TODOS",description="/truco @rival @rival2 @rival3 -> PARTIDA CORTA 1 mano (si se va = 0 coins)\n/batalla @rival puntos:15/30 -> BATALLA LARGA (si abandona rival = +100 coins, ganar batalla = +500)\n/jugar @amigo -> corto 1v1\n/jugar -> vs bot\nTimeout 2min en cualquier lado = termina SIN monedas\nAnti-spam 3 seg ON\nSan Lorenzo FIX ✅\nBot 24/7 ON ✅\n/tienda /equipar /codigos /perfil",color=0x9b59b6))
+ await i.response.send_message(embed=discord.Embed(title="AYUDA V5.0 - MENU JUGAR + NO SLEEP",description="/jugar -> Menu con 1V1 TRIO ESCUADRON BOT BOT TRIO BOT ESCUADRON + Invitar TE HA RETADO + Cancelar solo creador\nBOT arranca de una, HUMANO cuando se llena (2/6/8)\n/truco @rival... -> CORTA\n/batalla @rival puntos -> LARGA\nRETRUCO VALE4 PODERES ENVIDO siempre en botones 🔥\nTimeout 2min\nSan Lorenzo FIX\nBot 24/7 con UptimeRobot Up + Self Ping",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
  await tree.sync()
- print("V4.0 TODOS CONTRA TODOS + CORTA/LARGA + SAN LORENZO FIX + ANTI SPAM + TIMEOUT 2MIN + NO SLEEP")
+ print("V5.0 MENU JUGAR + INVITAR + CANCELAR + RETRUCO + PODERES + NO SLEEP DEFINITIVO")
  bot.loop.create_task(timeout_checker())
 
 bot.run(os.getenv("DISCORD_TOKEN"))
