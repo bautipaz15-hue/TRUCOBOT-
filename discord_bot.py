@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V6.5 UNIFICADO + SAVE"
+def h(): return "ok BOT TRUCO V6.5 DOBLE SAVE + DISCULPA"
 
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
@@ -35,24 +35,86 @@ def calc_envido(mano):
  return max_e
 
 PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200}
-CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0}
+CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0,"DISCULPAS_POR_LOS_PROGRESOS_PERDIDOS":500}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
 
-# --- FIX PROGRESO GUARDADO ---
+# --- DOBLE SEGURIDAD - NO SE BORRA MAS ---
 os.makedirs("data", exist_ok=True)
 FILE="data/usuarios.json"
-if os.path.exists("usuarios.json") and not os.path.exists(FILE):
-    try: 
-        with open("usuarios.json","r") as a, open(FILE,"w") as b: b.write(a.read())
-    except: pass
+FILE_BACKUP="data/usuarios_backup.json"
+SAVE_URL_FILE="data/save_url.txt"
+
+def get_save_url():
+    if os.path.exists(SAVE_URL_FILE):
+        try:
+            with open(SAVE_URL_FILE,"r") as f:
+                u=f.read().strip()
+                if u: return u
+        except: pass
+    if os.environ.get("SAVE_URL"):
+        return os.environ.get("SAVE_URL").strip()
+    try:
+        r=requests.post("https://jsonblob.com/api/jsonBlob", json={}, timeout=10)
+        loc=r.headers.get("Location","")
+        if loc:
+            if not loc.startswith("http"): loc=f"https://jsonblob.com{loc}"
+            with open(SAVE_URL_FILE,"w") as f: f.write(loc)
+            print(f"✅ BASE CREADA GRATIS: {loc} - GUARDALA EN RENDER ENV COMO SAVE_URL")
+            return loc
+    except Exception as e:
+        print(f"Error creando save url: {e}")
+    return None
+
+SAVE_URL=get_save_url()
+print(f"SAVE_URL ACTIVA = {SAVE_URL}")
 
 def load_u():
- if not os.path.exists(FILE): return {}
- try:
-  with open(FILE,"r") as f: return json.load(f)
- except: return {}
+    # 1. Intentar de INTERNET (doble seguridad 1)
+    if SAVE_URL:
+        try:
+            r=requests.get(SAVE_URL, timeout=8)
+            if r.status_code==200:
+                j=r.json()
+                if isinstance(j, dict) and len(j)>=0:
+                    # Si vino algo, guardarlo local también
+                    if len(j)>0:
+                        try:
+                            with open(FILE,"w") as f: json.dump(j,f,indent=2)
+                            with open(FILE_BACKUP,"w") as f: json.dump(j,f,indent=2)
+                        except: pass
+                    return j
+        except: pass
+    # 2. Intentar FILE principal
+    if os.path.exists(FILE):
+        try:
+            with open(FILE,"r") as f: 
+                d=json.load(f)
+                return d
+        except: pass
+    # 3. Intentar BACKUP
+    if os.path.exists(FILE_BACKUP):
+        try:
+            with open(FILE_BACKUP,"r") as f: 
+                d=json.load(f)
+                # Restaurar principal
+                with open(FILE,"w") as fw: json.dump(d,fw,indent=2)
+                return d
+        except: pass
+    return {}
+
 def save_u(d):
- with open(FILE,"w") as f: json.dump(d,f,indent=2)
+    # DOBLE SEGURIDAD: guarda en 3 lugares
+    try:
+        with open(FILE,"w") as f: json.dump(d,f,indent=2)
+    except: pass
+    try:
+        with open(FILE_BACKUP,"w") as f: json.dump(d,f,indent=2)
+    except: pass
+    if SAVE_URL:
+        try:
+            requests.put(SAVE_URL, json=d, timeout=8)
+        except: pass
+
 def ensure_user(uid):
  data=load_u(); s=str(uid)
  if s not in data:
@@ -60,13 +122,16 @@ def ensure_user(uid):
   save_u(data)
  return data
 def add_coins(uid,cant):
- data=load_u(); s=str(uid); ensure_user(uid); data=load_u()
+ data=load_u(); s=str(uid)
+ if s not in data: ensure_user(uid); data=load_u()
  data[s]["coins"]=data[s].get("coins",0)+cant; save_u(data)
 def add_win(uid,tipo):
- data=load_u(); s=str(uid); ensure_user(uid); data=load_u()
+ data=load_u(); s=str(uid)
+ if s not in data: ensure_user(uid); data=load_u()
  if tipo=="bot": data[s]["wins_bot"]=data[s].get("wins_bot",0)+1
  else: data[s]["wins_amigo"]=data[s].get("wins_amigo",0)+1
  save_u(data)
+
 def buscar_tablero(nombre):
  if not os.path.exists("tableros"): return None
  nombre=nombre.lower()
@@ -84,7 +149,6 @@ def check_spam(uid):
  ahora=time.time()
  if ahora-ultimo_comando.get(uid,0) < 2: return False
  ultimo_comando[uid]=ahora; return True
-
 def get_file_embed_titulo(emb, uid):
     tpath = tab_user(uid)
     if tpath and os.path.exists(tpath):
@@ -100,7 +164,6 @@ class JugarDeNuevoView(discord.ui.View):
         ensure_user(i.user.id)
         emb = discord.Embed(title="🎮 ELEGÍ MODO", description="1V1 (2) | TRIO (6) | ESCUADRON (8)", color=0x2ecc71)
         await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
-
 class ManoPrivadaView(discord.ui.View):
     def __init__(self, pid, owner_id):
         super().__init__(timeout=120)
@@ -111,7 +174,6 @@ class ManoPrivadaView(discord.ui.View):
         for carta in d["manos"][owner_id]:
             if carta not in jugadas:
                 self.add_item(CartaAmigoV4(carta, owner_id, pid))
-
 class VerMazoBtn(discord.ui.Button):
     def __init__(self, pid, owner_id, label=None):
         self.pid=pid; self.owner_id=owner_id
@@ -129,7 +191,6 @@ class VerMazoBtn(discord.ui.Button):
         emb = discord.Embed(title="🃏 TU MAZO PRIVADO (solo vos)", description=f"**Cartas:** {texto}\n**Envido:** {calc_envido(mano_restante)} pts", color=0x3498db)
         await i.response.send_message(embed=emb, view=ManoPrivadaView(self.pid, self.owner_id), ephemeral=True)
 
-# TIENDA SIMPLE
 class TableroSelect(discord.ui.Select):
  def __init__(self,owner): self.owner=owner; owned=load_u().get(str(owner),{}).get("owned",["default"]); super().__init__(placeholder="📋 TABLEROS", min_values=1, max_values=1, options=[discord.SelectOption(label=o.upper(), value=o) for o in owned[:25]])
  async def callback(self,i):
@@ -175,7 +236,6 @@ class TrucoRespAmigo(discord.ui.View):
   await i.response.send_message(f"❌ NO QUIERO! {d['nombres'][ganador_id]} gana"); d["puntos"][ganador_id]+=d.get("truco_nivel",1)
   if d.get("tipo")=="corta": partidas.pop(self.pid,None)
   self.stop()
-
 class EnvidoRespAmigo(discord.ui.View):
  def __init__(self,pid, cantor_id): super().__init__(timeout=30); self.pid=pid; self.cantor_id=cantor_id
  @discord.ui.button(label="QUIERO",style=discord.ButtonStyle.success)
@@ -315,7 +375,6 @@ class TrucoAmigoV4(discord.ui.Button):
   if nivel>=4: await i.response.send_message("Ya es VALE 4",ephemeral=True); return
   d["last_action"]=time.time(); d["truco_pendiente"]={"cantor":i.user.id, "nivel":nivel}
   await i.response.send_message(f"🔥 **{d['nombres'][i.user.id]}** canta {'TRUCO' if nivel==1 else 'RETRUCO' if nivel==2 else 'VALE 4'}! Vale {nivel+1}", view=TrucoRespAmigo(self.pid,nivel,i.user.id))
-
 class EnvidoAmigoV4(discord.ui.Button):
  def __init__(self,pid,owner): self.pid=pid; self.owner=owner; super().__init__(label="ENVIDO 💰",style=discord.ButtonStyle.success,row=0)
  async def callback(self,i):
@@ -327,7 +386,6 @@ class EnvidoAmigoV4(discord.ui.Button):
   d["last_action"]=time.time(); d["envido_jugado"]=True; d["envido_cantor"]=i.user.id; d["envido_pendiente"]={"cantor":i.user.id}
   envido_p = calc_envido(d["manos"][i.user.id])
   await i.response.send_message(f"💰 **{d['nombres'][i.user.id]}** canta ENVIDO! Tiene {envido_p}", view=EnvidoRespAmigo(self.pid,i.user.id))
-
 class SalirAmigoV4(discord.ui.Button):
  def __init__(self,pid,owner): self.pid=pid; self.owner=owner; super().__init__(label="IRSE AL MAZO 🚪",style=discord.ButtonStyle.secondary,row=2)
  async def callback(self,i):
@@ -336,7 +394,6 @@ class SalirAmigoV4(discord.ui.Button):
   if d["tipo"]=="corta": await i.response.send_message(f"🚪 {d['nombres'][i.user.id]} se fue"); partidas.pop(self.pid,None)
   else: otros=[uid for uid in d["jugadores"] if uid!=i.user.id]; [add_coins(uid,100) for uid in otros]; await i.response.send_message(f"🚪 ABANDONO +100 para resto"); partidas.pop(self.pid,None) if len(otros)==1 else d.update({"jugadores":otros})
 
-# V6.5 UNIFICADO: TODO EN UN MENSAJE
 class PartidaUnificadaView(discord.ui.View):
     def __init__(self, pid):
         super().__init__(timeout=600)
@@ -350,7 +407,6 @@ class PartidaUnificadaView(discord.ui.View):
         self.add_item(TrucoAmigoV4(pid, first))
         self.add_item(EnvidoAmigoV4(pid, first))
         self.add_item(SalirAmigoV4(pid, first))
-
 class JugarMenuView(discord.ui.View):
  def __init__(self, owner_id): super().__init__(timeout=180); self.owner_id=owner_id
  @discord.ui.button(label="⚔️ 1V1", style=discord.ButtonStyle.primary, row=0)
@@ -384,7 +440,6 @@ class JugarMenuView(discord.ui.View):
   view=V(i.user.id,mj)
   if file: await i.response.edit_message(embed=emb, attachments=[file], view=view)
   else: await i.response.edit_message(embed=emb, view=view)
-
 class SalaEsperaView(discord.ui.View):
  def __init__(self, pid): super().__init__(timeout=300); self.pid=pid
  @discord.ui.button(label="✅ ESTOY LISTO", style=discord.ButtonStyle.success)
@@ -409,7 +464,6 @@ class SalaEsperaView(discord.ui.View):
        msg = await i.original_response()
        partidas[self.pid]["mensaje_id"] = msg.id
    except: pass
-   await i.followup.send(f"✅ Partida `{self.pid[:6]}` iniciada!", ephemeral=True)
   else:
    emb=discord.Embed(title=f"⚔️ SALA {sala['modo'].upper()} ({len(sala['jugadores'])}/{sala['necesarios']})", description=f"Jugadores: {', '.join(sala['nombres'].values())}", color=0xe74c3c)
    await i.response.edit_message(embed=emb, view=self)
@@ -438,7 +492,6 @@ async def jugar(i:discord.Interaction):
  ensure_user(i.user.id)
  emb=discord.Embed(title="🎮 ELEGÍ MODO - V6.5 UNIFICADO", description="1V1 (2) | TRIO (6) | ESCUADRON (8) - Todo en 1 mensaje + SAVE", color=0x9b59b6)
  await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
-
 @tree.command(name="truco",description="Partida CORTA")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
  ensure_user(i.user.id)
@@ -455,13 +508,12 @@ async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: disco
  partidas[pid]={"jugadores":jugadores,"manos":manos,"jugadas_ronda":{},"rondas_ganadas":{uid:0 for uid in jugadores},"puntos":{uid:0 for uid in jugadores},"puntos_para_ganar":1,"tipo":"corta","nombres":nombres,"truco_nivel":1,"envido_jugado":False,"truco_pendiente":None,"envido_pendiente":None,"last_action":time.time(), "mensaje_id": None}
  emb=discord.Embed(title=f"🃏 TRUCO CORTO {' vs '.join(nombres.values())} | ID {pid[:6]}", description=f"Todo en este mensaje", color=0xe74c3c)
  file, emb = get_file_embed_titulo(emb, i.user.id)
- if file: msg = await i.response.send_message(embed=emb, file=file, view=PartidaUnificadaView(pid))
+ if file: await i.response.send_message(embed=emb, file=file, view=PartidaUnificadaView(pid))
  else: await i.response.send_message(embed=emb, view=PartidaUnificadaView(pid))
  try:
      msg = await i.original_response()
      partidas[pid]["mensaje_id"]=msg.id
  except: pass
-
 @tree.command(name="batalla",description="Batalla LARGA")
 @app_commands.choices(puntos=[Choice(name="15 puntos", value=15), Choice(name="30 puntos", value=30)])
 async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, rival2: discord.Member = None, rival3: discord.Member = None):
@@ -485,7 +537,6 @@ async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, ri
      msg = await i.original_response()
      partidas[pid]["mensaje_id"]=msg.id
  except: pass
-
 @tree.command(name="tienda",description="Tienda")
 @app_commands.choices(categoria=[Choice(name="TABLEROS", value="tableros"),Choice(name="PODERES", value="poderes")])
 async def tienda(i:discord.Interaction, categoria: str):
@@ -493,7 +544,6 @@ async def tienda(i:discord.Interaction, categoria: str):
  data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
  embed=discord.Embed(title=f"🛒 TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f)
  await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
-
 @tree.command(name="ranking",description="Ranking")
 async def ranking(i:discord.Interaction):
  await i.response.defer()
@@ -501,17 +551,14 @@ async def ranking(i:discord.Interaction):
  top=sorted(data.items(), key=lambda x: x[1].get("wins_bot",0)+x[1].get("wins_amigo",0), reverse=True)[:10]
  desc="\n".join([f"{idx}. {info.get('wins_bot',0)+info.get('wins_amigo',0)} wins - ID {uid}" for idx,(uid,info) in enumerate(top,1)])
  await i.followup.send(embed=discord.Embed(title="🏆 RANKING",description=desc,color=0xf1c40f))
-
 @tree.command(name="equipar",description="Equipar")
 async def equipar(i:discord.Interaction):
  await i.response.defer(ephemeral=True)
  await i.followup.send(embed=discord.Embed(title="🎒 EQUIPAR",color=0x2ecc71),view=EquiparView(i.user.id),ephemeral=True)
-
 @tree.command(name="perfil",description="Perfil")
 async def perfil(i:discord.Interaction):
  ensure_user(i.user.id); data=load_u(); s=str(i.user.id)
  await i.response.send_message(f"💰 {data[s]['coins']} 🏆 Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']} | Tableros: {len(data[s]['owned'])}")
-
 @tree.command(name="codigos",description="Canjear un codigo secreto")
 async def codigos(i:discord.Interaction, codigo: str):
  await i.response.defer(ephemeral=True)
@@ -542,12 +589,12 @@ async def codigos(i:discord.Interaction, codigo: str):
 
 @tree.command(name="ayuda",description="Ayuda V6.5")
 async def ayuda(i:discord.Interaction):
- await i.response.send_message(embed=discord.Embed(title="AYUDA V6.5 UNIFICADO",description="/jugar -> 1 mensaje por partida con ID\nVER MAZO por jugador en mismo mensaje\nProgreso guardado en data/usuarios.json\nNo repetir cartas + bloqueo truco propio",color=0x9b59b6))
+ await i.response.send_message(embed=discord.Embed(title="AYUDA V6.5 DOBLE SAVE",description="Doble seguridad: guarda local + backup + online\nCodigo disculpa: DISCULPAS_POR_LOS_PROGRESOS_PERDIDOS +500",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
  await tree.sync()
- print("V6.5 UNIFICADO + SAVE + NO REPETIR + CODIGOS")
+ print(f"V6.5 DOBLE SAVE OK - URL: {SAVE_URL}")
  bot.loop.create_task(timeout_checker())
 
 bot.run(os.getenv("DISCORD_TOKEN"))
