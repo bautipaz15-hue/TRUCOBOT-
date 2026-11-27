@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3.1 FIX"
+def h(): return "ok BOT TRUCO V9.3.1 COMPLETO TODO"
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 def keep_alive():
@@ -49,16 +49,11 @@ def bot_elige_carta(mano_bot, carta_rival):
     return orden[0]
 
 PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"huggy_wuggy":1250,"mommy_long_legs":1250,"catnap":1250,"wobbly_life":1000,"geometry_dash":1000,"gta":1250,"gta_6":1250,"plants_vs_zombies":1250}
-
-RECUPERACION={
-    "joakops2015_69807": {"coins": 3000, "tableros": ["diamante", "springtrap", "san lorenzo"], "equipado": "diamante"},
-    "green1109": {"coins": 500, "tableros": ["san lorenzo"], "equipado": "san lorenzo"}
-}
+RECUPERACION={"joakops2015_69807": {"coins": 3000, "tableros": ["diamante", "springtrap", "san lorenzo"], "equipado": "diamante"},"green1109": {"coins": 500, "tableros": ["san lorenzo"], "equipado": "san lorenzo"}}
 def normaliza(s): return str(s).lower().strip()
 def es_match(nombre_discord, key_recuperacion):
     nd=normaliza(nombre_discord); kr=normaliza(key_recuperacion)
     return kr in nd or nd in kr or kr.replace("_","") in nd.replace("_","")
-
 LOTES={"poppy_playtime":{"boards":["huggy_wuggy","mommy_long_legs","catnap"],"precio":3000,"nombre":"POPPY PLAYTIME LOTE (3)"}}
 CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0,"DISCULPAS_POR_LOS_PROGRESOS_PERDIDOS":500,"PELUSA_GOD_XDDD":"pelu","THE_PROTOTIPE_ITS_HERE":"prototipo"}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
@@ -67,52 +62,29 @@ EXPRESIONES={"FELIZ":200,"ENOJADO":200,"LLORANDO":200,"FUEGO":300,"RISA":300,"CO
 os.makedirs("data", exist_ok=True)
 FILE="data/usuarios.json"
 FILE_BACKUP="data/usuarios_backup.json"
-
 SAVE_URL_FIJA = "https://kvdb.io/6x7a9TrucoBotV93Backup2026/usuarios"
-def get_save_url(): return SAVE_URL_FIJA
-SAVE_URL = get_save_url()
+SAVE_URL = SAVE_URL_FIJA
 
 def load_u():
     try:
         r=requests.get(SAVE_URL, timeout=8)
         if r.status_code==200:
             j=r.json()
-            if isinstance(j, dict):
-                try:
-                    with open(FILE,"w") as f: json.dump(j,f,indent=2)
-                    with open(FILE_BACKUP,"w") as f: json.dump(j,f,indent=2)
-                except: pass
-                if len(j)>0: return j
+            if isinstance(j, dict) and len(j)>0: return j
     except: pass
     if os.path.exists(FILE):
         try: 
             with open(FILE,"r") as f: return json.load(f)
         except: pass
-    if os.path.exists(FILE_BACKUP):
-        try: 
-            with open(FILE_BACKUP,"r") as f: d=json.load(f)
-            with open(FILE,"w") as fw: json.dump(d,fw,indent=2); return d
-        except: pass
     return {}
-
 def save_u(d):
-    try: 
-        with open(FILE,"w") as f: json.dump(d,f,indent=2)
-    except: pass
-    try: 
-        with open(FILE_BACKUP,"w") as f: json.dump(d,f,indent=2)
-    except: pass
     try: requests.put(SAVE_URL, json=d, timeout=8)
     except: pass
-
 def ensure_user(uid, nombre_lookup=None):
     data=load_u(); s=str(uid)
-    creado=False
     if s not in data:
         data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[],"poderes":{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0},"owned_exp":["DEFAULT"],"exp_equipado":"DEFAULT","wins_bot":0,"wins_amigo":0,"recuperado":False}
-        creado=True
-    if "recuperado" not in data[s]:
-        data[s]["recuperado"]=False
+    if "recuperado" not in data[s]: data[s]["recuperado"]=False
     try:
         if nombre_lookup and not data[s].get("recuperado", False):
             for key, rec in RECUPERACION.items():
@@ -122,18 +94,12 @@ def ensure_user(uid, nombre_lookup=None):
                         tb_low=tb.lower()
                         if tb_low not in [o.lower() for o in data[s].get("owned",[])]:
                             data[s]["owned"].append(tb_low)
-                    if rec.get("equipado"):
-                        data[s]["equipado"]=rec.get("equipado").lower()
+                    if rec.get("equipado"): data[s]["equipado"]=rec.get("equipado").lower()
                     data[s]["recuperado"]=True
-                    print(f"RECUPERADO POR UNICA VEZ {nombre_lookup} -> {rec}")
                     save_u(data)
                     break
-    except Exception as e:
-        print(f"Error recuperacion: {e}")
-    if creado:
-        save_u(data)
+    except: pass
     return data
-
 def add_coins(uid,cant):
     data=load_u(); s=str(uid)
     if s not in data: ensure_user(uid); data=load_u()
@@ -148,14 +114,13 @@ def add_win(uid,tipo):
 def buscar_tablero(nombre):
     if not os.path.exists("tableros"): return None
     nombre=nombre.lower()
-    if "san" in nombre and "lorenzo" in nombre: nombre="san lorenzo"
     for f in os.listdir("tableros"):
         if nombre in f.lower(): return os.path.join("tableros",f)
-    return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
+    return None
 def tab_user(uid):
     data=load_u(); s=str(uid); eq=data.get(s,{}).get("equipado","default") if s in data else "default"; t=buscar_tablero(eq)
     if t and os.path.exists(t): return t
-    return "tableros/Tablero.jpg" if os.path.exists("tableros/Tablero.jpg") else None
+    return None
 def get_file_embed_titulo(emb, uid):
     tpath = tab_user(uid)
     if tpath and os.path.exists(tpath): file = discord.File(tpath, filename="tablero.jpg"); emb.set_image(url="attachment://tablero.jpg"); return file, emb
@@ -192,7 +157,7 @@ class VerMazoBtn(discord.ui.Button):
         await i.followup.send(embed=emb, view=ManoPrivadaView(self.pid, self.owner_id), ephemeral=True)
 
 class TableroSelect(discord.ui.Select):
-    def __init__(self,owner): self.owner=owner; owned=load_u().get(str(owner),{}).get("owned",["default"]); super().__init__(placeholder="TABLEROS - /equipar unico lugar", min_values=1, max_values=1, options=[discord.SelectOption(label=o.upper(), value=o) for o in owned[:25]])
+    def __init__(self,owner): self.owner=owner; owned=load_u().get(str(owner),{}).get("owned",["default"]); super().__init__(placeholder="TABLEROS - /equipar", min_values=1, max_values=1, options=[discord.SelectOption(label=o.upper(), value=o) for o in owned[:25]])
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -204,11 +169,7 @@ class EquiparView(discord.ui.View):
 class BotonTienda(discord.ui.Button):
     def __init__(self,nombre,precio,owner): 
         self.nombre=nombre; self.precio=precio; self.owner=owner
-        data=load_u(); owned=data.get(str(owner),{}).get("owned",[])
-        ya= nombre.lower() in [o.lower() for o in owned]
-        label = f"{nombre.upper()} - YA TENES" if ya else f"{nombre.upper()} - {precio}"
-        style = discord.ButtonStyle.secondary if ya else discord.ButtonStyle.primary
-        super().__init__(label=label,style=style, disabled=ya)
+        super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -219,11 +180,7 @@ class BotonTienda(discord.ui.Button):
 class BotonLote(discord.ui.Button):
     def __init__(self,owner): 
         self.owner=owner
-        data=load_u(); owned=[o.lower() for o in data.get(str(owner),{}).get("owned",[])]
-        lote=LOTES["poppy_playtime"]
-        tiene_todo=all(b in owned for b in lote["boards"])
-        label = f"{lote['nombre']} - YA TENES" if tiene_todo else f"{lote['nombre']} - {lote['precio']}"
-        super().__init__(label=label,style=discord.ButtonStyle.success if not tiene_todo else discord.ButtonStyle.secondary, disabled=tiene_todo)
+        super().__init__(label=f"{LOTES['poppy_playtime']['nombre']} - {LOTES['poppy_playtime']['precio']}",style=discord.ButtonStyle.success)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -251,9 +208,7 @@ class BotonPoder(discord.ui.Button):
 class BotonExp(discord.ui.Button):
     def __init__(self,nombre,precio,owner):
         self.nombre=nombre; self.precio=precio; self.owner=owner
-        data=load_u(); owned_exp=data.get(str(owner),{}).get("owned_exp",[])
-        ya=nombre in owned_exp or nombre.lower() in [x.lower() for x in owned_exp]
-        super().__init__(label=f"{nombre.upper()} - {'YA TENES' if ya else precio}",style=discord.ButtonStyle.secondary if ya else discord.ButtonStyle.primary, disabled=ya)
+        super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -320,7 +275,6 @@ class EnvidoRespAmigo(discord.ui.View):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
-        if not d or d.get("envido_pendiente") is None: return
         tipo = d["envido_pendiente"].get("tipo","envido"); envidos={uid: calc_envido(d["manos"][uid]) for uid in d["jugadores"]}; ganador = max(envidos, key=lambda k: envidos[k])
         if tipo=="envido": pts=2
         elif tipo=="real": pts=3
@@ -356,7 +310,6 @@ class FlorRespAmigo(discord.ui.View):
         ganador = self.cantor_id if (flor_cantor or 0) >= (flor_mio or 0) else i.user.id
         d["puntos"][ganador]+=pts; d["flor_pendiente"]=None; d["envido_jugado"]=True
         await i.followup.send(f"🌸 QUIERO! {flor_cantor} vs {flor_mio} -> Gana {d['nombres'][ganador]} +{pts}")
-        if self.nivel==3: partidas.pop(self.pid,None)
         self.stop()
     @discord.ui.button(label="NO QUIERO",style=discord.ButtonStyle.danger, row=0)
     async def no(self,i,b):
@@ -605,11 +558,11 @@ async def timeout_checker():
         for pid in list(salas_jugar.keys()):
             if ahora - salas_jugar[pid].get("last",ahora) > 300: salas_jugar.pop(pid,None)
 
-@tree.command(name="jugar",description="Jugar")
+@tree.command(name="jugar",description="Jugar - 1V1 TRIO ESCUADRON BOT")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.1 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.1 COMPLETO", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
-@tree.command(name="truco",description="Partida CORTA")
+@tree.command(name="truco",description="Partida CORTA 1v1")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
     ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); jugadores=[i.user.id]
     for r in [rival1,rival2,rival3]:
@@ -624,7 +577,7 @@ async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: disco
     emb=discord.Embed(title=f"TRUCO CORTO {' vs '.join(nombres.values())}", description=f"Full truco + Flor auto", color=0xe74c3c); file, emb = get_file_embed_titulo(emb, i.user.id)
     if file: await i.response.send_message(embed=emb, file=file, view=PartidaUnificadaView(pid))
     else: await i.response.send_message(embed=emb, view=PartidaUnificadaView(pid))
-@tree.command(name="batalla",description="Batalla LARGA")
+@tree.command(name="batalla",description="Batalla LARGA 15 o 30")
 @app_commands.choices(puntos=[Choice(name="15 puntos", value=15), Choice(name="30 puntos", value=30)])
 async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, rival2: discord.Member = None, rival3: discord.Member = None):
     ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); jugadores=[i.user.id]
@@ -641,36 +594,36 @@ async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, ri
     if file: await i.response.send_message(embed=emb, file=file, view=PartidaUnificadaView(pid))
     else: await i.response.send_message(embed=emb, view=PartidaUnificadaView(pid))
 
-@tree.command(name="tienda",description="Tienda")
+@tree.command(name="tienda",description="Tienda TABLEROS PODERES EXPRESIONES")
 @app_commands.choices(categoria=[Choice(name="TABLEROS", value="tableros"),Choice(name="PODERES", value="poderes"),Choice(name="EXPRESIONES", value="expresiones")])
 async def tienda(i:discord.Interaction, categoria: str):
     await i.response.defer(ephemeral=True); data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
-    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins - V9.3.1",color=0xf1c40f); await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
+    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins - V9.3.1 COMPLETO",color=0xf1c40f); await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
-@tree.command(name="regalar",description="Regalar tablero")
+@tree.command(name="regalar",description="Regalar tablero a un amigo - si no te alcanza no deja")
 async def regalar(i:discord.Interaction, tablero: str, usuario: discord.Member):
     await i.response.defer(ephemeral=True); ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); ensure_user(usuario.id, f"{usuario.name} {usuario.display_name}"); data=load_u(); s=str(i.user.id); s2=str(usuario.id); tablero=tablero.lower()
     if tablero in ["poppy_playtime","poppy","poppy_lote"]:
         precio=LOTES["poppy_playtime"]["precio"]
-        if data[s]["coins"]<precio: await i.followup.send(f"Te faltan coins",ephemeral=True); return
+        if data[s]["coins"]<precio: await i.followup.send(f"❌ Te faltan coins. Tenés {data[s]['coins']} y necesitas {precio} para regalar LOTE",ephemeral=True); return
         data[s]["coins"]-=precio
         for b in LOTES["poppy_playtime"]["boards"]:
             if b.lower() not in [o.lower() for o in data[s2]["owned"]]: data[s2]["owned"].append(b)
-        save_u(data); await i.followup.send(f"Le regalaste LOTE POPPY a {usuario.display_name}!",ephemeral=True); return
+        save_u(data); await i.followup.send(f"✅ Le regalaste LOTE POPPY a {usuario.display_name}! Te quedaron {data[s]['coins']}",ephemeral=True); return
     precio=PRECIOS.get(tablero)
     if not precio: await i.followup.send(f"No existe. Usa: {', '.join(PRECIOS.keys())} o poppy_playtime",ephemeral=True); return
-    if data[s]["coins"]<precio: await i.followup.send(f"Te faltan coins",ephemeral=True); return
+    if data[s]["coins"]<precio: await i.followup.send(f"❌ Te faltan coins. Tenés {data[s]['coins']} y necesitas {precio} para regalar {tablero.upper()}",ephemeral=True); return
     if tablero.lower() in [o.lower() for o in data[s2].get("owned",[])]: await i.followup.send("Ya tiene ese tablero",ephemeral=True); return
     data[s]["coins"]-=precio
     if tablero not in data[s2]["owned"]: data[s2]["owned"].append(tablero)
-    save_u(data); await i.followup.send(f"Le regalaste {tablero.upper()} a {usuario.display_name}!",ephemeral=True)
+    save_u(data); await i.followup.send(f"✅ Le regalaste {tablero.upper()} a {usuario.display_name}! Te quedaron {data[s]['coins']} coins",ephemeral=True)
 
 @tree.command(name="ranking",description="Ranking")
 async def ranking(i:discord.Interaction):
     await i.response.defer(); data=load_u(); top=sorted(data.items(), key=lambda x: x[1].get("wins_bot",0)+x[1].get("wins_amigo",0), reverse=True)[:10]
     desc="\n".join([f"{idx}. {info.get('wins_bot',0)+info.get('wins_amigo',0)} wins - ID {uid}" for idx,(uid,info) in enumerate(top,1)])
     await i.followup.send(embed=discord.Embed(title="RANKING",description=desc,color=0xf1c40f))
-@tree.command(name="equipar",description="Equipar - UNICO LUGAR")
+@tree.command(name="equipar",description="Equipar")
 async def equipar(i:discord.Interaction):
     await i.response.defer(ephemeral=True); await i.followup.send(embed=discord.Embed(title="EQUIPAR",color=0x2ecc71),view=EquiparView(i.user.id),ephemeral=True)
 @tree.command(name="perfil",description="Perfil")
@@ -699,22 +652,24 @@ async def codigos(i:discord.Interaction, codigo: str):
     if found in ["TRUCO!","1_ESPADA"]:
         data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+1 MAGO!", ephemeral=True); return
     data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
-@tree.command(name="ayuda",description="Ayuda V9.3.1")
+@tree.command(name="ayuda",description="Ayuda V9.3.1 COMPLETO")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.1 FIX",description="Restaura Bot Trio/Escuadron + Tienda Expresiones/Poderes + Flor Auto + Truco/Retruco/Vale4 + Envido/Real/Falta + Lote $3000",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.1 COMPLETO TODO",description="1V1 TRIO ESCUADRON BOT TRIO BOT ESCUADRON + Truco/Retruco/Vale4 + Envido/Real/Falta + Flor + Tienda Tableros/Poderes/Expresiones + Regalar con check coins",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
     try:
-        await tree.sync()
+        print("=== SYNC COMPLETO TODO ===")
+        synced = await tree.sync()
+        print(f"GLOBAL SYNC: {[c.name for c in synced]}")
         for guild in bot.guilds:
             try:
-                await tree.sync(guild=guild)
-            except:
-                pass
-        print(f"V9.3.1 SYNC OK - URL FIJA ETERNA: {SAVE_URL} - {len(bot.guilds)} guilds")
+                sg = await tree.sync(guild=guild)
+                print(f"GUILD {guild.id} {guild.name}: {[c.name for c in sg]}")
+            except: pass
+        print(f"V9.3.1 COMPLETO SYNC OK - URL: {SAVE_URL} - COMANDOS: {[c.name for c in tree.get_commands()]} - GUILDS: {len(bot.guilds)}")
     except Exception as e:
-        print(f"Sync error ignorado: {e}")
+        print(f"Sync error: {e}")
     bot.loop.create_task(timeout_checker())
 
 bot.run(os.getenv("DISCORD_TOKEN"))
