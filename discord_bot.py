@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3.5 FIX"
+def h(): return "ok BOT TRUCO V9.3.6 FINAL"
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 
@@ -42,14 +42,14 @@ def bot_elige_carta(mano_bot, carta_rival):
         if v(c[0],c[1]) > vr: return c
     return orden[0]
 
-PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"huggy_wuggy":1250,"mommy_long_legs":1250,"catnap":1250,"wobbly_life":1000,"geometry_dash":1000,"gta":1250,"gta_6":1250,"plants_vs_zombies":1250}
+PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"huggy_wuggy":1250,"mommy_long_legs":1250,"catnap":1250,"wobbly_life":1000,"geometry_dash":1000,"gta":1250,"gta_6":1250,"plants_vs_zombies":1250,"pelu":0,"prototipo":0}
 RECUPERACION={"joakops2015_69807": {"coins": 3000, "tableros": ["diamante", "springtrap", "san lorenzo"], "equipado": "diamante"},"green1109": {"coins": 500, "tableros": ["san lorenzo"], "equipado": "san lorenzo"}}
 def normaliza(s): return str(s).lower().strip()
 def es_match(nombre_discord, key_recuperacion):
     nd=normaliza(nombre_discord); kr=normaliza(key_recuperacion)
     return kr in nd or nd in kr or kr.replace("_","") in nd.replace("_","")
 LOTES={"poppy_playtime":{"boards":["huggy_wuggy","mommy_long_legs","catnap"],"precio":3000,"nombre":"POPPY PLAYTIME LOTE (3)"}}
-CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0,"DISCULPAS_POR_LOS_PROGRESOS_PERDIDOS":500,"PELUSA_GOD_XDDD":"pelu","THE_PROTOTYPE_ITS_HERE":"prototipo"}
+CODIGOS={"PELUSA_GOD_XDDD":"pelu","THE_PROTOTYPE_ITS_HERE":"prototipo"}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
 EXPRESIONES={"FELIZ":200,"ENOJADO":200,"LLORANDO":200,"FUEGO":300,"RISA":300,"CORAZON":500}
 
@@ -132,19 +132,27 @@ def add_win(uid,tipo):
     if tipo=="bot": data[s]["wins_bot"]=data[s].get("wins_bot",0)+1
     else: data[s]["wins_amigo"]=data[s].get("wins_amigo",0)+1
     save_u(data)
+
 def buscar_tablero(nombre):
     if not os.path.exists("tableros"): return None
-    nombre=nombre.lower()
+    nombre = nombre.lower().strip()
+    # Fix para pelu y prototipo: busca exacto primero
     for f in os.listdir("tableros"):
-        if nombre in f.lower(): return os.path.join("tableros",f)
+        if f.lower().startswith(nombre) or nombre in f.lower():
+            return os.path.join("tableros", f)
     return None
+
 def tab_user(uid):
     data=load_u(); s=str(uid); eq=data.get(s,{}).get("equipado","default") if s in data else "default"; t=buscar_tablero(eq)
     if t and os.path.exists(t): return t
     return None
+
 def get_file_embed_titulo(emb, uid):
     tpath = tab_user(uid)
-    if tpath and os.path.exists(tpath): file = discord.File(tpath, filename="tablero.jpg"); emb.set_image(url="attachment://tablero.jpg"); return file, emb
+    if tpath and os.path.exists(tpath): 
+        file = discord.File(tpath, filename="tablero.jpg")
+        emb.set_image(url="attachment://tablero.jpg")
+        return file, emb
     return None, emb
 
 class JugarDeNuevoView(discord.ui.View):
@@ -170,6 +178,7 @@ class VerMazoBtn(discord.ui.Button):
         try: await i.response.defer(ephemeral=True)
         except: pass
         d = partidas.get(self.pid)
+        if not d: await i.followup.send("Partida terminada", ephemeral=True); return
         mano = d["manos"].get(i.user.id, []); jugadas = d.get(f"cartas_jugadas_{i.user.id}", [])
         mano_restante = [c for c in mano if c not in jugadas and c not in d.get("jugadas_ronda",{}).values()]
         if not mano_restante: await i.followup.send("Ya no tenes cartas", ephemeral=True); return
@@ -296,6 +305,7 @@ class EnvidoRespAmigo(discord.ui.View):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
+        if not d or d.get("envido_pendiente") is None: return
         tipo = d["envido_pendiente"].get("tipo","envido"); envidos={uid: calc_envido(d["manos"][uid]) for uid in d["jugadores"]}; ganador = max(envidos, key=lambda k: envidos[k])
         if tipo=="envido": pts=2
         elif tipo=="real": pts=3
@@ -305,18 +315,24 @@ class EnvidoRespAmigo(discord.ui.View):
     async def no(self,i,b):
         try: await i.response.defer()
         except: pass
-        d=partidas.get(self.pid); d["envido_pendiente"]=None; d["envido_jugado"]=True; cantor = d.get("envido_cantor")
+        d=partidas.get(self.pid)
+        if not d or d.get("envido_pendiente") is None: return
+        d["envido_pendiente"]=None; d["envido_jugado"]=True; cantor = d.get("envido_cantor")
         if cantor: d["puntos"][cantor]+=1; await i.followup.send(f"💰 NO QUIERO! +1 para {d['nombres'][cantor]}"); self.stop()
     @discord.ui.button(label="REAL ENVIDO",style=discord.ButtonStyle.primary, row=1)
     async def real(self,i,b):
         try: await i.response.defer()
         except: pass
-        d=partidas.get(self.pid); d["envido_pendiente"]={"cantor":i.user.id, "tipo":"real"}; await i.followup.send(f"💰 {d['nombres'][i.user.id]} canta REAL ENVIDO!", view=EnvidoRespAmigo(self.pid,i.user.id)); self.stop()
+        d=partidas.get(self.pid)
+        if d.get("envido_jugado"): await i.followup.send("Envido ya jugado",ephemeral=True); return
+        d["envido_pendiente"]={"cantor":i.user.id, "tipo":"real"}; await i.followup.send(f"💰 {d['nombres'][i.user.id]} canta REAL ENVIDO!", view=EnvidoRespAmigo(self.pid,i.user.id)); self.stop()
     @discord.ui.button(label="FALTA ENVIDO",style=discord.ButtonStyle.primary, row=1)
     async def falta(self,i,b):
         try: await i.response.defer()
         except: pass
-        d=partidas.get(self.pid); d["envido_pendiente"]={"cantor":i.user.id, "tipo":"falta"}; await i.followup.send(f"💰💰 {d['nombres'][i.user.id]} canta FALTA ENVIDO!", view=EnvidoRespAmigo(self.pid,i.user.id)); self.stop()
+        d=partidas.get(self.pid)
+        if d.get("envido_jugado"): await i.followup.send("Envido ya jugado",ephemeral=True); return
+        d["envido_pendiente"]={"cantor":i.user.id, "tipo":"falta"}; await i.followup.send(f"💰💰 {d['nombres'][i.user.id]} canta FALTA ENVIDO!", view=EnvidoRespAmigo(self.pid,i.user.id)); self.stop()
 
 class FlorRespAmigo(discord.ui.View):
     def __init__(self,pid, cantor_id, nivel): super().__init__(timeout=60); self.pid=pid; self.cantor_id=cantor_id; self.nivel=nivel
@@ -324,7 +340,9 @@ class FlorRespAmigo(discord.ui.View):
     async def quiero(self,i,b):
         try: await i.response.defer()
         except: pass
-        d=partidas.get(self.pid); flor_cantor = calc_flor(d["manos"][self.cantor_id]); flor_mio = calc_flor(d["manos"][i.user.id])
+        d=partidas.get(self.pid)
+        if not d or d.get("flor_pendiente") is None: return
+        flor_cantor = calc_flor(d["manos"][self.cantor_id]); flor_mio = calc_flor(d["manos"][i.user.id])
         if self.nivel==1: pts=3
         elif self.nivel==2: pts=6
         else: pts = d["puntos_para_ganar"] - max(d["puntos"].values()) if d.get("tipo")!="corta" else 3
@@ -337,6 +355,7 @@ class FlorRespAmigo(discord.ui.View):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
+        if not d or d.get("flor_pendiente") is None: return
         if self.nivel==1: pts=3
         elif self.nivel==2: pts=4
         else: pts=6
@@ -396,7 +415,9 @@ class E(discord.ui.Button):
     async def callback(self,i):
         try: await i.response.defer()
         except: pass
-        d=partidas.get(self.o); d["pj"]+=1; await i.followup.send(f"Bot: NO QUIERO +1")
+        d=partidas.get(self.o)
+        if d.get("envido_jugado"): await i.followup.send("Envido ya jugado",ephemeral=True); return
+        d["pj"]+=1; d["envido_jugado"]=True; await i.followup.send(f"Bot: NO QUIERO +1")
 class S(discord.ui.Button):
     def __init__(self,o): self.o=o; super().__init__(label="IRSE AL MAZO",style=discord.ButtonStyle.secondary,row=1)
     async def callback(self,i): 
@@ -412,8 +433,12 @@ class CartaAmigoV4(discord.ui.Button):
         try: await i.response.defer(ephemeral=True)
         except: pass
         d=partidas.get(self.pid)
-        if not d or i.user.id not in d["jugadores"] or d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): await i.followup.send(f"Hay canto pendiente!", ephemeral=True); return
-        if self.owner in d["jugadas_ronda"]: await i.followup.send("Ya jugaste",ephemeral=True); return
+        if not d: await i.followup.send("Partida terminada", ephemeral=True); return
+        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): await i.followup.send(f"Hay canto pendiente!", ephemeral=True); return
+        if d.get("envido_jugado") and len(d["jugadas_ronda"])==0:
+            # envido ya jugado ok, no bloquear carta
+            pass
+        if self.owner in d["jugadas_ronda"]: await i.followup.send("Ya jugaste esta ronda",ephemeral=True); return
         d["last_action"]=time.time()
         if self.carta in d["manos"][self.owner]: d["manos"][self.owner].remove(self.carta)
         d.setdefault(f"cartas_jugadas_{self.owner}", []).append(self.carta); d["jugadas_ronda"][self.owner]=self.carta
@@ -428,9 +453,17 @@ class CartaAmigoV4(discord.ui.Button):
             if max(d["rondas_ganadas"].values())>=2 or sum(d["rondas_ganadas"].values())>=3:
                 ganador_mano = max(d["rondas_ganadas"], key=lambda k: d["rondas_ganadas"][k]); puntos_mano = d.get("truco_nivel",1); d["puntos"][ganador_mano]+=puntos_mano
                 await i.channel.send(f"Mano para **{d['nombres'][ganador_mano]}** +{puntos_mano} pts | { {d['nombres'][k]:v for k,v in d['puntos'].items()} }")
-                if d["tipo"]=="corta": add_coins(ganador_mano,250); add_win(ganador_mano,"amigo"); await i.channel.send(f"GANA {d['nombres'][ganador_mano]} +250", view=JugarDeNuevoView()); partidas.pop(self.pid,None); return
+                if d["tipo"]=="corta": 
+                    add_coins(ganador_mano,250); add_win(ganador_mano,"amigo"); 
+                    await i.channel.send(f"GANA {d['nombres'][ganador_mano]} +250", view=JugarDeNuevoView()); 
+                    partidas.pop(self.pid,None)
+                    return
                 else:
-                    if d["puntos"][ganador_mano]>=d["puntos_para_ganar"]: add_coins(ganador_mano,500); await i.channel.send(f"{d['nombres'][ganador_mano]} GANA +500!", view=JugarDeNuevoView()); partidas.pop(self.pid,None); return
+                    if d["puntos"][ganador_mano]>=d["puntos_para_ganar"]: 
+                        add_coins(ganador_mano,500); 
+                        await i.channel.send(f"{d['nombres'][ganador_mano]} GANA +500!", view=JugarDeNuevoView()); 
+                        partidas.pop(self.pid,None)
+                        return
                     else: await nueva_mano_v4(self.pid,i.channel)
 
 async def nueva_mano_v4(pid, channel):
@@ -459,7 +492,9 @@ class TrucoAmigoV4(discord.ui.Button):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
-        if not d or d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): return
+        if not d: return
+        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"):
+            await i.followup.send("Hay canto pendiente!", ephemeral=True); return
         nivel=d.get("truco_nivel",1)
         if nivel>=4: await i.followup.send("Ya es VALE 4",ephemeral=True); return
         d["last_action"]=time.time(); d["truco_pendiente"]={"cantor":i.user.id, "nivel":nivel}
@@ -471,8 +506,13 @@ class EnvidoAmigoV4(discord.ui.Button):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
-        if not d or d.get("envido_pendiente") or d.get("truco_pendiente") or d.get("flor_pendiente"): await i.followup.send("Ya hay canto pendiente",ephemeral=True); return
-        if d.get("envido_jugado") or len(d["jugadas_ronda"])!=0: await i.followup.send("Envido solo al principio",ephemeral=True); return
+        if not d: return
+        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"):
+            await i.followup.send("Hay canto pendiente!", ephemeral=True); return
+        if d.get("envido_jugado"):
+            await i.followup.send("El envido ya se jugó en esta mano", ephemeral=True); return
+        if len(d["jugadas_ronda"])!=0:
+            await i.followup.send("Envido solo al principio de la mano",ephemeral=True); return
         d["last_action"]=time.time(); d["envido_cantor"]=i.user.id; d["envido_pendiente"]={"cantor":i.user.id, "tipo":"envido"}
         envido_p = calc_envido(d["manos"][i.user.id]); await i.followup.send(f"**{d['nombres'][i.user.id]}** canta ENVIDO! Tiene {envido_p}", view=EnvidoRespAmigo(self.pid,i.user.id))
 
@@ -482,6 +522,7 @@ class SalirAmigoV4(discord.ui.Button):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
+        if not d: return
         if d["tipo"]=="corta": await i.followup.send(f"{d['nombres'][i.user.id]} se fue"); partidas.pop(self.pid,None)
         else: otros=[uid for uid in d["jugadores"] if uid!=i.user.id]; [add_coins(uid,100) for uid in otros]; await i.followup.send(f"ABANDONO +100"); partidas.pop(self.pid,None) if len(otros)==1 else d.update({"jugadores":otros})
 
@@ -581,7 +622,7 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar - 1V1 TRIO ESCUADRON BOT")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.5 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.6", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 
 @tree.command(name="truco",description="Partida CORTA 1v1")
@@ -682,25 +723,38 @@ async def codigos(i:discord.Interaction, codigo: str):
             if k.upper()==code_upper: found=k; break
         if not found: await i.followup.send("Codigo invalido", ephemeral=True); return
         if found in data[s].get("codigos",[]): await i.followup.send("Ya canjeado", ephemeral=True); return
-        if isinstance(CODIGOS[found], str):
-            board=CODIGOS[found]
-            if board not in data[s]["owned"]: data[s]["owned"].append(board)
-            data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"Canjeado! Tablero {board.upper()}!", ephemeral=True); return
-        data[s]["coins"]=data[s].get("coins",0)+CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
+        board=CODIGOS[found]
+        if board not in data[s]["owned"]: data[s]["owned"].append(board)
+        data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data)
+        # FIX: muestra imagen del tablero canjeado
+        tpath = buscar_tablero(board)
+        if tpath and os.path.exists(tpath):
+            file = discord.File(tpath, filename="tablero.jpg")
+            emb = discord.Embed(title=f"Canjeado! {board.upper()}", description=f"Tablero equipado", color=0x2ecc71)
+            emb.set_image(url="attachment://tablero.jpg")
+            await i.followup.send(embed=emb, file=file, ephemeral=True)
+        else:
+            await i.followup.send(f"Canjeado! Tablero {board.upper()}! (no se encontró imagen {board}.jpg en /tableros)", ephemeral=True)
     except Exception as e:
         try: await i.followup.send(f"Error: {e}", ephemeral=True)
         except: pass
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.5 FIX",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.6 FINAL",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE con imagen | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
     try:
-        print("=== SYNC COMPLETO TODO ===")
+        print("=== SYNC COMPLETO FORZADO ===")
         synced = await tree.sync()
-        print(f"SYNC: {[c.name for c in synced]}")
+        print(f"Global: {[c.name for c in synced]}")
+        for guild in bot.guilds:
+            try:
+                gsynced = await tree.sync(guild=guild)
+                print(f"Guild {guild.name}: {[c.name for c in gsynced]}")
+            except Exception as ge:
+                print(f"Guild sync error {guild.name}: {ge}")
     except Exception as e:
         print(f"Sync error: {e}")
     bot.loop.create_task(timeout_checker())
