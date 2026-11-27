@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3.3 FINAL"
+def h(): return "ok BOT TRUCO V9.3.4 FIX"
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 
@@ -55,27 +55,48 @@ EXPRESIONES={"FELIZ":200,"ENOJADO":200,"LLORANDO":200,"FUEGO":300,"RISA":300,"CO
 
 os.makedirs("data", exist_ok=True)
 FILE="data/usuarios.json"
-SAVE_URL = os.getenv("SAVE_URL") or "https://kvdb.io/6x7a9TrucoBotV93Backup2026/usuarios"
+SAVE_URL = "https://kvdb.io/6x7a9TrucoBotV93Backup2026/usuarios"
+_cache_usuarios = None
+_last_fetch = 0
 
 def load_u():
+    global _cache_usuarios, _last_fetch
+    if _cache_usuarios is not None and time.time() - _last_fetch < 60:
+        return _cache_usuarios
     if os.path.exists(FILE):
-        try: 
-            with open(FILE,"r") as f: j=json.load(f); 
-            if isinstance(j, dict) and len(j)>0: return j
+        try:
+            with open(FILE,"r") as f:
+                j=json.load(f)
+                if isinstance(j, dict) and len(j) > 0:
+                    _cache_usuarios = j
+                    _last_fetch = time.time()
+                    return j
         except: pass
     try:
-        r=requests.get(SAVE_URL, timeout=5)
+        r=requests.get(SAVE_URL, timeout=4)
         if r.status_code==200:
             j=r.json()
-            if isinstance(j, dict) and len(j)>0: return j
+            if isinstance(j, dict) and len(j) > 0:
+                os.makedirs("data", exist_ok=True)
+                with open(FILE,"w") as f: json.dump(j,f)
+                _cache_usuarios = j
+                _last_fetch = time.time()
+                return j
     except: pass
-    return {}
+    return _cache_usuarios or {}
+
 def save_u(d):
+    global _cache_usuarios, _last_fetch
+    _cache_usuarios = d
+    _last_fetch = time.time()
     try:
         with open(FILE,"w") as f: json.dump(d,f)
     except: pass
-    try: requests.put(SAVE_URL, json=d, timeout=5)
-    except: pass
+    def _bg():
+        try: requests.put(SAVE_URL, json=d, timeout=3)
+        except: pass
+    Thread(target=_bg, daemon=True).start()
+
 def ensure_user(uid, nombre_lookup=None):
     data=load_u(); s=str(uid)
     if s not in data:
@@ -96,6 +117,7 @@ def ensure_user(uid, nombre_lookup=None):
                     break
     except: pass
     return data
+
 def add_coins(uid,cant):
     data=load_u(); s=str(uid)
     if s not in data: ensure_user(uid); data=load_u()
@@ -555,7 +577,7 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar - 1V1 TRIO ESCUADRON BOT")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.3 FINAL", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.4 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 @tree.command(name="truco",description="Partida CORTA 1v1")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
@@ -626,19 +648,26 @@ async def perfil(i:discord.Interaction):
     ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); data=load_u(); s=str(i.user.id); await i.response.send_message(f"{data[s]['coins']} coins | Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']} | Tableros: {len(data[s]['owned'])} Exp: {len(data[s].get('owned_exp',[]))}")
 @tree.command(name="codigos",description="Canjear codigo")
 async def codigos(i:discord.Interaction, codigo: str):
-    await i.response.defer(ephemeral=True); ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); data=load_u(); s=str(i.user.id); code_upper=codigo.strip().upper(); found=None
-    for k in CODIGOS:
-        if k.upper()==code_upper: found=k; break
-    if not found: await i.followup.send("Codigo invalido", ephemeral=True); return
-    if found in data[s]["codigos"]: await i.followup.send("Ya canjeado", ephemeral=True); return
-    if isinstance(CODIGOS[found], str):
-        board=CODIGOS[found]
-        if board not in data[s]["owned"]: data[s]["owned"].append(board)
-        data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"Canjeado! Tablero {board.upper()}!", ephemeral=True); return
-    data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
+    try:
+        await i.response.defer(ephemeral=True)
+        ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}")
+        data=load_u(); s=str(i.user.id); code_upper=codigo.strip().upper(); found=None
+        for k in CODIGOS:
+            if k.upper()==code_upper: found=k; break
+        if not found: await i.followup.send("Codigo invalido", ephemeral=True); return
+        if found in data[s]["codigos"]: await i.followup.send("Ya canjeado", ephemeral=True); return
+        if isinstance(CODIGOS[found], str):
+            board=CODIGOS[found]
+            if board not in data[s]["owned"]: data[s]["owned"].append(board)
+            data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"Canjeado! Tablero {board.upper()}!", ephemeral=True); return
+        data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
+    except Exception as e:
+        try: await i.followup.send(f"Error: {e}", ephemeral=True)
+        except: pass
+
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.3 FINAL",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.4 FIX",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
