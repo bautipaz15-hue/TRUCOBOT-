@@ -707,7 +707,12 @@ async def ayuda(i:discord.Interaction):
 async def on_ready():
     try:
         await tree.sync()
-        print(f"V9.3.1 SYNC OK - URL FIJA ETERNA: {SAVE_URL}")
+        for guild in bot.guilds:
+            try:
+                await tree.sync(guild=guild)
+            except:
+                pass
+        print(f"V9.3.1 SYNC OK - URL FIJA ETERNA: {SAVE_URL} - {len(bot.guilds)} guilds")
     except Exception as e:
         print(f"Sync error ignorado: {e}")
     bot.loop.create_task(timeout_checker())
