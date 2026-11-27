@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3.6 FINAL"
+def h(): return "ok BOT TRUCO V9.3.7 FINAL"
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 
@@ -45,9 +45,9 @@ def bot_elige_carta(mano_bot, carta_rival):
 PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"huggy_wuggy":1250,"mommy_long_legs":1250,"catnap":1250,"wobbly_life":1000,"geometry_dash":1000,"gta":1250,"gta_6":1250,"plants_vs_zombies":1250,"pelu":0,"prototipo":0}
 RECUPERACION={"joakops2015_69807": {"coins": 3000, "tableros": ["diamante", "springtrap", "san lorenzo"], "equipado": "diamante"},"green1109": {"coins": 500, "tableros": ["san lorenzo"], "equipado": "san lorenzo"}}
 def normaliza(s): return str(s).lower().strip()
-def es_match(nombre_discord, key_recuperacion):
-    nd=normaliza(nombre_discord); kr=normaliza(key_recuperacion)
-    return kr in nd or nd in kr or kr.replace("_","") in nd.replace("_","")
+def es_match(a,b): 
+    na=normaliza(a); nb=normaliza(b)
+    return nb in na or na in nb or nb.replace("_","") in na.replace("_","")
 LOTES={"poppy_playtime":{"boards":["huggy_wuggy","mommy_long_legs","catnap"],"precio":3000,"nombre":"POPPY PLAYTIME LOTE (3)"}}
 CODIGOS={"PELUSA_GOD_XDDD":"pelu","THE_PROTOTYPE_ITS_HERE":"prototipo"}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
@@ -136,17 +136,14 @@ def add_win(uid,tipo):
 def buscar_tablero(nombre):
     if not os.path.exists("tableros"): return None
     nombre = nombre.lower().strip()
-    # Fix para pelu y prototipo: busca exacto primero
     for f in os.listdir("tableros"):
-        if f.lower().startswith(nombre) or nombre in f.lower():
+        if nombre in f.lower() or f.lower().startswith(nombre):
             return os.path.join("tableros", f)
     return None
-
 def tab_user(uid):
     data=load_u(); s=str(uid); eq=data.get(s,{}).get("equipado","default") if s in data else "default"; t=buscar_tablero(eq)
     if t and os.path.exists(t): return t
     return None
-
 def get_file_embed_titulo(emb, uid):
     tpath = tab_user(uid)
     if tpath and os.path.exists(tpath): 
@@ -197,9 +194,7 @@ class EquiparView(discord.ui.View):
     def __init__(self,owner): super().__init__(timeout=180); self.add_item(TableroSelect(owner))
 
 class BotonTienda(discord.ui.Button):
-    def __init__(self,nombre,precio,owner): 
-        self.nombre=nombre; self.precio=precio; self.owner=owner
-        super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
+    def __init__(self,nombre,precio,owner): self.nombre=nombre; self.precio=precio; self.owner=owner; super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -208,9 +203,7 @@ class BotonTienda(discord.ui.Button):
         data[s]["coins"]-=self.precio; data[s]["owned"].append(self.nombre); save_u(data); await i.followup.send(f"Compraste {self.nombre.upper()}",ephemeral=True)
 
 class BotonLote(discord.ui.Button):
-    def __init__(self,owner): 
-        self.owner=owner
-        super().__init__(label=f"{LOTES['poppy_playtime']['nombre']} - {LOTES['poppy_playtime']['precio']}",style=discord.ButtonStyle.success)
+    def __init__(self,owner): super().__init__(label=f"{LOTES['poppy_playtime']['nombre']} - {LOTES['poppy_playtime']['precio']}",style=discord.ButtonStyle.success)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -222,9 +215,7 @@ class BotonLote(discord.ui.Button):
         save_u(data); await i.followup.send(f"Compraste LOTE {lote['nombre']}",ephemeral=True)
 
 class BotonPoder(discord.ui.Button):
-    def __init__(self,nombre,precio,owner,tipo):
-        self.nombre=nombre; self.precio=precio; self.owner=owner; self.tipo=tipo
-        super().__init__(label=f"{nombre} {tipo} - {precio}",style=discord.ButtonStyle.primary)
+    def __init__(self,nombre,precio,owner,tipo): self.nombre=nombre; self.precio=precio; self.owner=owner; self.tipo=tipo; super().__init__(label=f"{nombre} {tipo} - {precio}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -236,9 +227,7 @@ class BotonPoder(discord.ui.Button):
         save_u(data); await i.followup.send(f"Compraste {self.nombre} {self.tipo}",ephemeral=True)
 
 class BotonExp(discord.ui.Button):
-    def __init__(self,nombre,precio,owner):
-        self.nombre=nombre; self.precio=precio; self.owner=owner
-        super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
+    def __init__(self,nombre,precio,owner): self.nombre=nombre; self.precio=precio; self.owner=owner; super().__init__(label=f"{nombre.upper()} - {precio}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
@@ -348,17 +337,14 @@ class FlorRespAmigo(discord.ui.View):
         else: pts = d["puntos_para_ganar"] - max(d["puntos"].values()) if d.get("tipo")!="corta" else 3
         ganador = self.cantor_id if (flor_cantor or 0) >= (flor_mio or 0) else i.user.id
         d["puntos"][ganador]+=pts; d["flor_pendiente"]=None; d["envido_jugado"]=True
-        await i.followup.send(f"🌸 QUIERO! {flor_cantor} vs {flor_mio} -> Gana {d['nombres'][ganador]} +{pts}")
-        self.stop()
+        await i.followup.send(f"🌸 QUIERO! {flor_cantor} vs {flor_mio} -> Gana {d['nombres'][ganador]} +{pts}"); self.stop()
     @discord.ui.button(label="NO QUIERO",style=discord.ButtonStyle.danger, row=0)
     async def no(self,i,b):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.pid)
         if not d or d.get("flor_pendiente") is None: return
-        if self.nivel==1: pts=3
-        elif self.nivel==2: pts=4
-        else: pts=6
+        pts=3 if self.nivel==1 else 4 if self.nivel==2 else 6
         d["puntos"][self.cantor_id]+=pts; d["flor_pendiente"]=None; d["envido_jugado"]=True
         await i.followup.send(f"🌸 NO QUIERO! +{pts} para {d['nombres'][self.cantor_id]}"); self.stop()
     @discord.ui.button(label="CONTRAFLOR",style=discord.ButtonStyle.primary, row=1)
@@ -382,8 +368,10 @@ class C(discord.ui.Button):
         try: await i.response.defer()
         except: pass
         d=partidas.get(self.owner)
-        if not d or d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): await i.followup.send("Espera canto!",ephemeral=True); return
-        d["last_action"]=time.time(); self.disabled=True
+        if not d: return
+        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): await i.followup.send("Espera canto!",ephemeral=True); return
+        d["last_action"]=time.time()
+        self.view.clear_items()
         try: await i.edit_original_response(view=self.view)
         except: pass
         await i.followup.send(f"Tiraste {self.carta[0]} de {self.carta[1]}"); m = await i.followup.send("BOT PENSANDO..."); await asyncio.sleep(0.8)
@@ -428,41 +416,60 @@ class V(discord.ui.View):
     def __init__(self,o,m): super().__init__(timeout=None); [self.add_item(C(c,o)) for c in m]; self.add_item(T(o)); self.add_item(E(o)); self.add_item(S(o))
 
 class CartaAmigoV4(discord.ui.Button):
-    def __init__(self,carta,owner,pid): self.carta=carta; self.owner=owner; self.pid=pid; super().__init__(label=f"{carta[0]} de {carta[1]}",style=discord.ButtonStyle.primary)
+    def __init__(self,carta,owner,pid): 
+        self.carta=carta; self.owner=owner; self.pid=pid
+        super().__init__(label=f"{carta[0]} de {carta[1]}",style=discord.ButtonStyle.primary)
     async def callback(self,i):
         try: await i.response.defer(ephemeral=True)
         except: pass
         d=partidas.get(self.pid)
-        if not d: await i.followup.send("Partida terminada", ephemeral=True); return
-        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): await i.followup.send(f"Hay canto pendiente!", ephemeral=True); return
-        if d.get("envido_jugado") and len(d["jugadas_ronda"])==0:
-            # envido ya jugado ok, no bloquear carta
-            pass
-        if self.owner in d["jugadas_ronda"]: await i.followup.send("Ya jugaste esta ronda",ephemeral=True); return
+        if not d: 
+            await i.followup.send("Partida terminada", ephemeral=True)
+            return
+        if d.get("truco_pendiente") or d.get("envido_pendiente") or d.get("flor_pendiente"): 
+            await i.followup.send(f"Hay canto pendiente!", ephemeral=True)
+            return
+        if self.owner in d.get("jugadas_ronda",{}): 
+            await i.followup.send("Ya jugaste esta ronda",ephemeral=True)
+            return
+        try:
+            for child in self.view.children:
+                child.disabled = True
+            await i.edit_original_response(view=self.view)
+        except: pass
+
         d["last_action"]=time.time()
         if self.carta in d["manos"][self.owner]: d["manos"][self.owner].remove(self.carta)
-        d.setdefault(f"cartas_jugadas_{self.owner}", []).append(self.carta); d["jugadas_ronda"][self.owner]=self.carta
+        d.setdefault(f"cartas_jugadas_{self.owner}", []).append(self.carta)
+        d["jugadas_ronda"][self.owner]=self.carta
         await i.followup.send(f"Tiraste {self.carta[0]} de {self.carta[1]} (solo vos)", ephemeral=True)
         await i.channel.send(f"{d['nombres'][self.owner]} tiro carta boca abajo")
+        
         if len(d["jugadas_ronda"])==len(d["jugadores"]):
             mejor=None; ganador=None; texto_ronda=""
             for uid,carta in d["jugadas_ronda"].items():
                 val=v(carta[0],carta[1]); texto_ronda+=f"**{d['nombres'][uid]}**: {carta[0]} de {carta[1]} | "
                 if mejor is None or val>mejor: mejor=val; ganador=uid
-            d["rondas_ganadas"][ganador]+=1; await i.channel.send(f"Cartas: {texto_ronda}\nRonda para **{d['nombres'][ganador]}**"); d["jugadas_ronda"]={}
+            d["rondas_ganadas"][ganador]+=1
+            await i.channel.send(f"Cartas: {texto_ronda}\nRonda para **{d['nombres'][ganador]}**")
+            d["jugadas_ronda"]={}
             if max(d["rondas_ganadas"].values())>=2 or sum(d["rondas_ganadas"].values())>=3:
-                ganador_mano = max(d["rondas_ganadas"], key=lambda k: d["rondas_ganadas"][k]); puntos_mano = d.get("truco_nivel",1); d["puntos"][ganador_mano]+=puntos_mano
+                ganador_mano = max(d["rondas_ganadas"], key=lambda k: d["rondas_ganadas"][k])
+                puntos_mano = d.get("truco_nivel",1)
+                d["puntos"][ganador_mano]+=puntos_mano
                 await i.channel.send(f"Mano para **{d['nombres'][ganador_mano]}** +{puntos_mano} pts | { {d['nombres'][k]:v for k,v in d['puntos'].items()} }")
                 if d["tipo"]=="corta": 
-                    add_coins(ganador_mano,250); add_win(ganador_mano,"amigo"); 
-                    await i.channel.send(f"GANA {d['nombres'][ganador_mano]} +250", view=JugarDeNuevoView()); 
-                    partidas.pop(self.pid,None)
+                    add_coins(ganador_mano,250); add_win(ganador_mano,"amigo")
+                    pid_borrar = self.pid
+                    partidas.pop(pid_borrar,None)
+                    await i.channel.send(f"GANA {d['nombres'][ganador_mano]} +250", view=JugarDeNuevoView())
                     return
                 else:
                     if d["puntos"][ganador_mano]>=d["puntos_para_ganar"]: 
-                        add_coins(ganador_mano,500); 
-                        await i.channel.send(f"{d['nombres'][ganador_mano]} GANA +500!", view=JugarDeNuevoView()); 
-                        partidas.pop(self.pid,None)
+                        add_coins(ganador_mano,500)
+                        pid_borrar = self.pid
+                        partidas.pop(pid_borrar,None)
+                        await i.channel.send(f"{d['nombres'][ganador_mano]} GANA +500!", view=JugarDeNuevoView())
                         return
                     else: await nueva_mano_v4(self.pid,i.channel)
 
@@ -565,14 +572,12 @@ class JugarMenuView(discord.ui.View):
         try: await i.response.defer()
         except: pass
         await self.iniciar_bot(i, "bot_escuadron")
-
     async def crear_sala(self, i, modo, necesarios):
         pid=f"lobby_{i.channel.id}"; salas_jugar[pid]={"modo":modo,"necesarios":necesarios,"jugadores":[i.user.id],"nombres":{i.user.id:i.user.display_name},"creador":i.user.id,"creador_nombre":i.user.display_name,"last":time.time()}
         emb=discord.Embed(title=f"SALA {modo.upper()} CREADA ({1}/{necesarios})", description=f"**{i.user.display_name} TE HA RETADO A UN TRUCO!**", color=0xe74c3c); file, emb = get_file_embed_titulo(emb, i.user.id)
         if file: await i.followup.send(embed=emb, file=file, view=SalaEsperaView(pid))
         else: await i.followup.send(embed=emb, view=SalaEsperaView(pid))
         await i.channel.send(f"@everyone **{i.user.display_name} TE RETO A UN TRUCO! Modo {modo.upper()}**")
-
     async def iniciar_bot(self, i, modo):
         ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
         partidas[i.user.id]={"bot":mb.copy(),"mano_jugador":mj.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False,"last_action":time.time()}
@@ -622,7 +627,7 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar - 1V1 TRIO ESCUADRON BOT")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.6", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.7", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 
 @tree.command(name="truco",description="Partida CORTA 1v1")
@@ -726,7 +731,6 @@ async def codigos(i:discord.Interaction, codigo: str):
         board=CODIGOS[found]
         if board not in data[s]["owned"]: data[s]["owned"].append(board)
         data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data)
-        # FIX: muestra imagen del tablero canjeado
         tpath = buscar_tablero(board)
         if tpath and os.path.exists(tpath):
             file = discord.File(tpath, filename="tablero.jpg")
@@ -741,20 +745,31 @@ async def codigos(i:discord.Interaction, codigo: str):
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.6 FINAL",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE con imagen | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.7 FINAL",description="Retruco Vale4 Envido Real Falta Flor ContraFlor | Codigos PELUSA y PROTOTIPO con imagen | Tienda expresiones | Regalar",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
     try:
-        print("=== SYNC COMPLETO FORZADO ===")
-        synced = await tree.sync()
-        print(f"Global: {[c.name for c in synced]}")
-        for guild in bot.guilds:
+        print("=== SYNC COMPLETO FORZADO V9.3.7 ===")
+        guild_id = os.getenv("GUILD_ID")
+        if guild_id:
             try:
-                gsynced = await tree.sync(guild=guild)
-                print(f"Guild {guild.name}: {[c.name for c in gsynced]}")
+                guild = discord.Object(id=int(guild_id))
+                tree.copy_global_to(guild=guild)
+                synced = await tree.sync(guild=guild)
+                print(f"SYNC GUILD {guild_id}: {[c.name for c in synced]}")
             except Exception as ge:
-                print(f"Guild sync error {guild.name}: {ge}")
+                print(f"Guild sync error: {ge}")
+                synced = await tree.sync()
+                print(f"Fallback global: {[c.name for c in synced]}")
+        else:
+            synced = await tree.sync()
+            print(f"Global: {[c.name for c in synced]}")
+            for g in bot.guilds:
+                try:
+                    await tree.sync(guild=g)
+                    print(f"Synced {g.name}")
+                except: pass
     except Exception as e:
         print(f"Sync error: {e}")
     bot.loop.create_task(timeout_checker())
