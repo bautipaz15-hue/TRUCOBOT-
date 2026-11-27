@@ -7,7 +7,6 @@ from threading import Thread
 app = Flask('')
 @app.route('/')
 def h(): return "ok BOT TRUCO V9.3.1 FIX"
-
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 def keep_alive():
@@ -27,7 +26,6 @@ TIMEOUT_SEGUNDOS=120
 PALOS=["espada","basto","oro","copa"]
 NUMS=[1,2,3,4,5,6,7,10,11,12]
 VALOR={(1,"espada"):14,(1,"basto"):13,(7,"espada"):12,(7,"oro"):11,3:10,2:9,1:8,12:7,11:6,10:5,7:4,6:3,5:2,4:1}
-
 def v(n,p): return VALOR.get((n,p),VALOR.get(n,0))
 def envido_valor(n): return n if n<10 else 0
 def calc_envido(mano):
@@ -51,6 +49,16 @@ def bot_elige_carta(mano_bot, carta_rival):
     return orden[0]
 
 PRECIOS={"river":1000,"boca":1000,"san lorenzo":1000,"racing":1000,"springtrap":1250,"creeper":1500,"minecraft":1500,"diamante":1800,"oro":1200,"huggy_wuggy":1250,"mommy_long_legs":1250,"catnap":1250,"wobbly_life":1000,"geometry_dash":1000,"gta":1250,"gta_6":1250,"plants_vs_zombies":1250}
+
+RECUPERACION={
+    "joakops2015_69807": {"coins": 3000, "tableros": ["diamante", "springtrap", "san lorenzo"], "equipado": "diamante"},
+    "green1109": {"coins": 500, "tableros": ["san lorenzo"], "equipado": "san lorenzo"}
+}
+def normaliza(s): return str(s).lower().strip()
+def es_match(nombre_discord, key_recuperacion):
+    nd=normaliza(nombre_discord); kr=normaliza(key_recuperacion)
+    return kr in nd or nd in kr or kr.replace("_","") in nd.replace("_","")
+
 LOTES={"poppy_playtime":{"boards":["huggy_wuggy","mommy_long_legs","catnap"],"precio":3000,"nombre":"POPPY PLAYTIME LOTE (3)"}}
 CODIGOS={"TRUCO2026":1000,"navidad_se_acerca":350,"7_ORO":350,"TRUCO!":0,"1_ESPADA":0,"SPRITE":0,"VICTORY ROYALE":0,"GAMER":0,"DISCULPAS_POR_LOS_PROGRESOS_PERDIDOS":500,"PELUSA_GOD_XDDD":"pelu","THE_PROTOTIPE_ITS_HERE":"prototipo"}
 PODERES_PRECIO={"MAGO":{"x1":400,"x10":3500},"OJO":{"x1":350,"x10":3000},"ESCUDO":{"x1":500,"x10":4500},"LADRON":{"x1":450,"x10":4000}}
@@ -59,39 +67,23 @@ EXPRESIONES={"FELIZ":200,"ENOJADO":200,"LLORANDO":200,"FUEGO":300,"RISA":300,"CO
 os.makedirs("data", exist_ok=True)
 FILE="data/usuarios.json"
 FILE_BACKUP="data/usuarios_backup.json"
-SAVE_URL_FILE="data/save_url.txt"
 
-def get_save_url():
-    if os.environ.get("SAVE_URL"): return os.environ.get("SAVE_URL").strip()
-    if os.path.exists(SAVE_URL_FILE):
-        try:
-            with open(SAVE_URL_FILE,"r") as f:
-                u=f.read().strip()
-                if u: return u
-        except: pass
-    try:
-        r=requests.post("https://jsonblob.com/api/jsonBlob", json={}, timeout=10)
-        loc=r.headers.get("Location","")
-        if loc:
-            if not loc.startswith("http"): loc=f"https://jsonblob.com{loc}"
-            with open(SAVE_URL_FILE,"w") as f: f.write(loc); return loc
-    except: pass
-    return None
-SAVE_URL=get_save_url()
+SAVE_URL_FIJA = "https://kvdb.io/6x7a9TrucoBotV93Backup2026/usuarios"
+def get_save_url(): return SAVE_URL_FIJA
+SAVE_URL = get_save_url()
 
 def load_u():
-    if SAVE_URL:
-        try:
-            r=requests.get(SAVE_URL, timeout=8)
-            if r.status_code==200:
-                j=r.json()
-                if isinstance(j, dict) and len(j)>0:
-                    try:
-                        with open(FILE,"w") as f: json.dump(j,f,indent=2)
-                        with open(FILE_BACKUP,"w") as f: json.dump(j,f,indent=2)
-                    except: pass
-                    return j
-        except: pass
+    try:
+        r=requests.get(SAVE_URL, timeout=8)
+        if r.status_code==200:
+            j=r.json()
+            if isinstance(j, dict):
+                try:
+                    with open(FILE,"w") as f: json.dump(j,f,indent=2)
+                    with open(FILE_BACKUP,"w") as f: json.dump(j,f,indent=2)
+                except: pass
+                if len(j)>0: return j
+    except: pass
     if os.path.exists(FILE):
         try: 
             with open(FILE,"r") as f: return json.load(f)
@@ -110,14 +102,38 @@ def save_u(d):
     try: 
         with open(FILE_BACKUP,"w") as f: json.dump(d,f,indent=2)
     except: pass
-    if SAVE_URL:
-        try: requests.put(SAVE_URL, json=d, timeout=8)
-        except: pass
+    try: requests.put(SAVE_URL, json=d, timeout=8)
+    except: pass
 
-def ensure_user(uid):
+def ensure_user(uid, nombre_lookup=None):
     data=load_u(); s=str(uid)
-    if s not in data: data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[],"poderes":{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0},"owned_exp":["DEFAULT"],"exp_equipado":"DEFAULT","wins_bot":0,"wins_amigo":0}; save_u(data)
+    creado=False
+    if s not in data:
+        data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[],"poderes":{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0},"owned_exp":["DEFAULT"],"exp_equipado":"DEFAULT","wins_bot":0,"wins_amigo":0,"recuperado":False}
+        creado=True
+    if "recuperado" not in data[s]:
+        data[s]["recuperado"]=False
+    try:
+        if nombre_lookup and not data[s].get("recuperado", False):
+            for key, rec in RECUPERACION.items():
+                if es_match(nombre_lookup, key):
+                    data[s]["coins"]=rec.get("coins",0)
+                    for tb in rec.get("tableros",[]):
+                        tb_low=tb.lower()
+                        if tb_low not in [o.lower() for o in data[s].get("owned",[])]:
+                            data[s]["owned"].append(tb_low)
+                    if rec.get("equipado"):
+                        data[s]["equipado"]=rec.get("equipado").lower()
+                    data[s]["recuperado"]=True
+                    print(f"RECUPERADO POR UNICA VEZ {nombre_lookup} -> {rec}")
+                    save_u(data)
+                    break
+    except Exception as e:
+        print(f"Error recuperacion: {e}")
+    if creado:
+        save_u(data)
     return data
+
 def add_coins(uid,cant):
     data=load_u(); s=str(uid)
     if s not in data: ensure_user(uid); data=load_u()
@@ -151,7 +167,7 @@ class JugarDeNuevoView(discord.ui.View):
     async def replay(self, i, b):
         try: await i.response.defer()
         except: pass
-        ensure_user(i.user.id); emb = discord.Embed(title="ELEGI MODO", description="1V1 (2) | TRIO (6) | ESCUADRON (8)", color=0x2ecc71)
+        ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb = discord.Embed(title="ELEGI MODO", description="1V1 (2) | TRIO (6) | ESCUADRON (8)", color=0x2ecc71)
         await i.followup.send(embed=emb, view=JugarMenuView(i.user.id))
 
 class ManoPrivadaView(discord.ui.View):
@@ -543,7 +559,7 @@ class JugarMenuView(discord.ui.View):
         await i.channel.send(f"@everyone **{i.user.display_name} TE RETO A UN TRUCO! Modo {modo.upper()}**")
 
     async def iniciar_bot(self, i, modo):
-        ensure_user(i.user.id); m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
+        ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); mj=[m.pop() for _ in range(3)]; mb=[m.pop() for _ in range(3)]
         partidas[i.user.id]={"bot":mb.copy(),"mano_jugador":mj.copy(),"pj":0,"pb":0,"truco_nivel":1,"envido_jugado":False,"last_action":time.time()}
         emb=discord.Embed(title=f"TRUCO vs {modo.upper()}", description=f"Modo {modo} - Bot dificil", color=0x1e8449); file, emb = get_file_embed_titulo(emb, i.user.id); view=V(i.user.id,mj)
         if file: await i.followup.send(embed=emb, file=file, view=view)
@@ -591,11 +607,11 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id); emb=discord.Embed(title="ELEGI MODO - V9.3.1 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.1 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 @tree.command(name="truco",description="Partida CORTA")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
-    ensure_user(i.user.id); jugadores=[i.user.id]
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); jugadores=[i.user.id]
     for r in [rival1,rival2,rival3]:
         if r and r.id!=i.user.id and not r.bot and r.id not in jugadores: jugadores.append(r.id)
     pid=f"corta_{random.randint(10000,999999)}"; manos={}; m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); nombres={}
@@ -611,7 +627,7 @@ async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: disco
 @tree.command(name="batalla",description="Batalla LARGA")
 @app_commands.choices(puntos=[Choice(name="15 puntos", value=15), Choice(name="30 puntos", value=30)])
 async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, rival2: discord.Member = None, rival3: discord.Member = None):
-    ensure_user(i.user.id); jugadores=[i.user.id]
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); jugadores=[i.user.id]
     for r in [rival1,rival2,rival3]:
         if r and r.id!=i.user.id and not r.bot and r.id not in jugadores: jugadores.append(r.id)
     pid=f"larga_{random.randint(10000,999999)}"; manos={}; m=[(n,p) for p in PALOS for n in NUMS]; random.shuffle(m); nombres={}
@@ -633,7 +649,7 @@ async def tienda(i:discord.Interaction, categoria: str):
 
 @tree.command(name="regalar",description="Regalar tablero")
 async def regalar(i:discord.Interaction, tablero: str, usuario: discord.Member):
-    await i.response.defer(ephemeral=True); ensure_user(i.user.id); ensure_user(usuario.id); data=load_u(); s=str(i.user.id); s2=str(usuario.id); tablero=tablero.lower()
+    await i.response.defer(ephemeral=True); ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); ensure_user(usuario.id, f"{usuario.name} {usuario.display_name}"); data=load_u(); s=str(i.user.id); s2=str(usuario.id); tablero=tablero.lower()
     if tablero in ["poppy_playtime","poppy","poppy_lote"]:
         precio=LOTES["poppy_playtime"]["precio"]
         if data[s]["coins"]<precio: await i.followup.send(f"Te faltan coins",ephemeral=True); return
@@ -659,10 +675,10 @@ async def equipar(i:discord.Interaction):
     await i.response.defer(ephemeral=True); await i.followup.send(embed=discord.Embed(title="EQUIPAR",color=0x2ecc71),view=EquiparView(i.user.id),ephemeral=True)
 @tree.command(name="perfil",description="Perfil")
 async def perfil(i:discord.Interaction):
-    ensure_user(i.user.id); data=load_u(); s=str(i.user.id); await i.response.send_message(f"{data[s]['coins']} coins | Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']} | Tableros: {len(data[s]['owned'])} Exp: {len(data[s].get('owned_exp',[]))}")
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); data=load_u(); s=str(i.user.id); await i.response.send_message(f"{data[s]['coins']} coins | Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']} | Tableros: {len(data[s]['owned'])} Exp: {len(data[s].get('owned_exp',[]))}")
 @tree.command(name="codigos",description="Canjear codigo")
 async def codigos(i:discord.Interaction, codigo: str):
-    await i.response.defer(ephemeral=True); ensure_user(i.user.id); data=load_u(); s=str(i.user.id); code_upper=codigo.strip().upper(); found=None
+    await i.response.defer(ephemeral=True); ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); data=load_u(); s=str(i.user.id); code_upper=codigo.strip().upper(); found=None
     for k in CODIGOS:
         if k.upper()==code_upper: found=k; break
     if not found: await i.followup.send("Codigo invalido", ephemeral=True); return
@@ -691,9 +707,9 @@ async def ayuda(i:discord.Interaction):
 async def on_ready():
     try:
         await tree.sync()
+        print(f"V9.3.1 SYNC OK - URL FIJA ETERNA: {SAVE_URL}")
     except Exception as e:
-        print(f"Sync error ignorado (Entry Point fix): {e}")
-    print(f"V9.3.1 EVACUACION FIX OK - URL: {SAVE_URL}")
+        print(f"Sync error ignorado: {e}")
     bot.loop.create_task(timeout_checker())
 
 bot.run(os.getenv("DISCORD_TOKEN"))
