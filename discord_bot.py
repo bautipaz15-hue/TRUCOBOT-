@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3 EVACUACION COMPLETO"
+def h(): return "ok BOT TRUCO V9.3.1 FIX"
 
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
@@ -62,13 +62,13 @@ FILE_BACKUP="data/usuarios_backup.json"
 SAVE_URL_FILE="data/save_url.txt"
 
 def get_save_url():
+    if os.environ.get("SAVE_URL"): return os.environ.get("SAVE_URL").strip()
     if os.path.exists(SAVE_URL_FILE):
         try:
             with open(SAVE_URL_FILE,"r") as f:
                 u=f.read().strip()
                 if u: return u
         except: pass
-    if os.environ.get("SAVE_URL"): return os.environ.get("SAVE_URL").strip()
     try:
         r=requests.post("https://jsonblob.com/api/jsonBlob", json={}, timeout=10)
         loc=r.headers.get("Location","")
@@ -591,7 +591,7 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id); emb=discord.Embed(title="ELEGI MODO - V9.3 COMPLETO", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id); emb=discord.Embed(title="ELEGI MODO - V9.3.1 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
 @tree.command(name="truco",description="Partida CORTA")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
@@ -629,7 +629,7 @@ async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, ri
 @app_commands.choices(categoria=[Choice(name="TABLEROS", value="tableros"),Choice(name="PODERES", value="poderes"),Choice(name="EXPRESIONES", value="expresiones")])
 async def tienda(i:discord.Interaction, categoria: str):
     await i.response.defer(ephemeral=True); data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
-    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins - V9.3",color=0xf1c40f); await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
+    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins - V9.3.1",color=0xf1c40f); await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
 @tree.command(name="regalar",description="Regalar tablero")
 async def regalar(i:discord.Interaction, tablero: str, usuario: discord.Member):
@@ -683,11 +683,17 @@ async def codigos(i:discord.Interaction, codigo: str):
     if found in ["TRUCO!","1_ESPADA"]:
         data[s]["poderes"]["MAGO"]=data[s]["poderes"].get("MAGO",0)+1; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+1 MAGO!", ephemeral=True); return
     data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
-@tree.command(name="ayuda",description="Ayuda V9.3")
+@tree.command(name="ayuda",description="Ayuda V9.3.1")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3 COMPLETO",description="Restaura Bot Trio/Escuadron + Tienda Expresiones/Poderes + Flor Auto + Truco/Retruco/Vale4 + Envido/Real/Falta + Lote $3000 + 9 tableros + Progreso a salvo",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.1 FIX",description="Restaura Bot Trio/Escuadron + Tienda Expresiones/Poderes + Flor Auto + Truco/Retruco/Vale4 + Envido/Real/Falta + Lote $3000",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
-    await tree.sync(); print(f"V9.3 EVACUACION COMPLETO OK - URL: {SAVE_URL}"); bot.loop.create_task(timeout_checker())
+    try:
+        await tree.sync()
+    except Exception as e:
+        print(f"Sync error ignorado (Entry Point fix): {e}")
+    print(f"V9.3.1 EVACUACION FIX OK - URL: {SAVE_URL}")
+    bot.loop.create_task(timeout_checker())
+
 bot.run(os.getenv("DISCORD_TOKEN"))
