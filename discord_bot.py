@@ -6,7 +6,7 @@ from threading import Thread
 
 app = Flask('')
 @app.route('/')
-def h(): return "ok BOT TRUCO V9.3.4 FIX"
+def h(): return "ok BOT TRUCO V9.3.5 FIX"
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 Thread(target=run_flask, daemon=True).start()
 
@@ -99,8 +99,10 @@ def save_u(d):
 
 def ensure_user(uid, nombre_lookup=None):
     data=load_u(); s=str(uid)
+    creado=False
     if s not in data:
         data[s]={"coins":0,"equipado":"default","owned":["default"],"codigos":[],"poderes":{"MAGO":0,"OJO":0,"ESCUDO":0,"LADRON":0},"owned_exp":["DEFAULT"],"exp_equipado":"DEFAULT","wins_bot":0,"wins_amigo":0,"recuperado":False}
+        creado=True
     if "recuperado" not in data[s]: data[s]["recuperado"]=False
     try:
         if nombre_lookup and not data[s].get("recuperado", False):
@@ -113,9 +115,11 @@ def ensure_user(uid, nombre_lookup=None):
                             data[s]["owned"].append(tb_low)
                     if rec.get("equipado"): data[s]["equipado"]=rec.get("equipado").lower()
                     data[s]["recuperado"]=True
-                    save_u(data)
+                    creado=True
                     break
     except: pass
+    if creado:
+        save_u(data)
     return data
 
 def add_coins(uid,cant):
@@ -577,8 +581,9 @@ async def timeout_checker():
 
 @tree.command(name="jugar",description="Jugar - 1V1 TRIO ESCUADRON BOT")
 async def jugar(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.4 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); emb=discord.Embed(title="ELEGI MODO - V9.3.5 FIX", description="1V1 (2) | TRIO (6) | ESCUADRON (8) | BOT 1V1 | BOT TRIO | BOT ESCUADRON", color=0x9b59b6)
     await i.response.send_message(embed=emb, view=JugarMenuView(i.user.id))
+
 @tree.command(name="truco",description="Partida CORTA 1v1")
 async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: discord.Member = None, rival3: discord.Member = None):
     ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); jugadores=[i.user.id]
@@ -594,6 +599,7 @@ async def truco_cmd(i:discord.Interaction, rival1: discord.Member, rival2: disco
     emb=discord.Embed(title=f"TRUCO CORTO {' vs '.join(nombres.values())}", description=f"Full truco + Flor auto", color=0xe74c3c); file, emb = get_file_embed_titulo(emb, i.user.id)
     if file: await i.response.send_message(embed=emb, file=file, view=PartidaUnificadaView(pid))
     else: await i.response.send_message(embed=emb, view=PartidaUnificadaView(pid))
+
 @tree.command(name="batalla",description="Batalla LARGA 15 o 30")
 @app_commands.choices(puntos=[Choice(name="15 puntos", value=15), Choice(name="30 puntos", value=30)])
 async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, rival2: discord.Member = None, rival3: discord.Member = None):
@@ -614,12 +620,16 @@ async def batalla(i:discord.Interaction, rival1: discord.Member, puntos: int, ri
 @tree.command(name="tienda",description="Tienda TABLEROS PODERES EXPRESIONES")
 @app_commands.choices(categoria=[Choice(name="TABLEROS", value="tableros"),Choice(name="PODERES", value="poderes"),Choice(name="EXPRESIONES", value="expresiones")])
 async def tienda(i:discord.Interaction, categoria: str):
-    await i.response.defer(ephemeral=True); data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
-    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f); await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
+    await i.response.defer(ephemeral=True)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}")
+    data=load_u(); coins=data.get(str(i.user.id),{}).get("coins",0)
+    embed=discord.Embed(title=f"TIENDA {categoria.upper()} - {coins} coins",color=0xf1c40f)
+    await i.followup.send(embed=embed,view=TiendaView(i.user.id,categoria),ephemeral=True)
 
 @tree.command(name="regalar",description="Regalar tablero a un amigo")
 async def regalar(i:discord.Interaction, tablero: str, usuario: discord.Member):
-    await i.response.defer(ephemeral=True); ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); ensure_user(usuario.id, f"{usuario.name} {usuario.display_name}"); data=load_u(); s=str(i.user.id); s2=str(usuario.id); tablero=tablero.lower()
+    await i.response.defer(ephemeral=True)
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); ensure_user(usuario.id, f"{usuario.name} {usuario.display_name}"); data=load_u(); s=str(i.user.id); s2=str(usuario.id); tablero=tablero.lower()
     if tablero in ["poppy_playtime","poppy","poppy_lote"]:
         precio=LOTES["poppy_playtime"]["precio"]
         if data[s]["coins"]<precio: await i.followup.send(f"❌ Te faltan coins. Tenés {data[s]['coins']} y necesitas {precio}",ephemeral=True); return
@@ -640,34 +650,50 @@ async def ranking(i:discord.Interaction):
     await i.response.defer(); data=load_u(); top=sorted(data.items(), key=lambda x: x[1].get("wins_bot",0)+x[1].get("wins_amigo",0), reverse=True)[:10]
     desc="\n".join([f"{idx}. {info.get('wins_bot',0)+info.get('wins_amigo',0)} wins - ID {uid}" for idx,(uid,info) in enumerate(top,1)])
     await i.followup.send(embed=discord.Embed(title="RANKING",description=desc,color=0xf1c40f))
+
 @tree.command(name="equipar",description="Equipar")
 async def equipar(i:discord.Interaction):
     await i.response.defer(ephemeral=True); await i.followup.send(embed=discord.Embed(title="EQUIPAR",color=0x2ecc71),view=EquiparView(i.user.id),ephemeral=True)
+
 @tree.command(name="perfil",description="Perfil")
 async def perfil(i:discord.Interaction):
-    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}"); data=load_u(); s=str(i.user.id); await i.response.send_message(f"{data[s]['coins']} coins | Bot {data[s]['wins_bot']} Amigo {data[s]['wins_amigo']} | Tableros: {len(data[s]['owned'])} Exp: {len(data[s].get('owned_exp',[]))}")
+    ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}")
+    data=load_u()
+    s=str(i.user.id)
+    info=data.get(s, {})
+    coins=info.get("coins",0)
+    wb=info.get("wins_bot",0)
+    wa=info.get("wins_amigo",0)
+    owned=len(info.get("owned",[]))
+    exp=len(info.get("owned_exp",[]))
+    await i.response.send_message(f"{coins} coins | Bot {wb} Amigo {wa} | Tableros: {owned} Exp: {exp}")
+
 @tree.command(name="codigos",description="Canjear codigo")
 async def codigos(i:discord.Interaction, codigo: str):
     try:
         await i.response.defer(ephemeral=True)
         ensure_user(i.user.id, f"{i.user.name} {i.user.display_name}")
-        data=load_u(); s=str(i.user.id); code_upper=codigo.strip().upper(); found=None
+        data=load_u(); s=str(i.user.id)
+        if s not in data:
+            await i.followup.send("Error: usuario no encontrado, proba /perfil primero", ephemeral=True)
+            return
+        code_upper=codigo.strip().upper(); found=None
         for k in CODIGOS:
             if k.upper()==code_upper: found=k; break
         if not found: await i.followup.send("Codigo invalido", ephemeral=True); return
-        if found in data[s]["codigos"]: await i.followup.send("Ya canjeado", ephemeral=True); return
+        if found in data[s].get("codigos",[]): await i.followup.send("Ya canjeado", ephemeral=True); return
         if isinstance(CODIGOS[found], str):
             board=CODIGOS[found]
             if board not in data[s]["owned"]: data[s]["owned"].append(board)
             data[s]["equipado"]=board; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"Canjeado! Tablero {board.upper()}!", ephemeral=True); return
-        data[s]["coins"]+=CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
+        data[s]["coins"]=data[s].get("coins",0)+CODIGOS[found]; data[s]["codigos"].append(found); save_u(data); await i.followup.send(f"+{CODIGOS[found]} coins! Total: {data[s]['coins']}", ephemeral=True)
     except Exception as e:
         try: await i.followup.send(f"Error: {e}", ephemeral=True)
         except: pass
 
 @tree.command(name="ayuda",description="Ayuda")
 async def ayuda(i:discord.Interaction):
-    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.4 FIX",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
+    await i.response.send_message(embed=discord.Embed(title="AYUDA V9.3.5 FIX",description="Codigos: PELUSA_GOD_XDDD y THE_PROTOTYPE_ITS_HERE | Tienda: /tienda | Regalar: /regalar",color=0x9b59b6))
 
 @bot.event
 async def on_ready():
